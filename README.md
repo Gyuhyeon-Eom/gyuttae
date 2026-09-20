@@ -203,3 +203,5 @@ Google 실로그인, 실제 음성 인식 정확도, 설치 PWA의 기기별 동
 로컬 FastAPI 서버는 이전 개인방 API 검증용입니다. 최신 웹 UI와 공동 기능은 Cloudflare Worker 실행 환경에서 개발합니다.
 
 음성 입력 참고: [MDN SpeechRecognition](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition).
+
+운영 주소에서도 3개 독립 세션으로 가족방 초대·채팅·읽음·약속 저장·변경 승인·담당 수락/완료·도움 해결·접근 차단 통합 검증을 통과했습니다. 검증 전용 계정/방을 사용했으며 AI 비용을 발생시키지 않았습니다.
