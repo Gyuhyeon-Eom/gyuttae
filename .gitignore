@@ -1,0 +1,20 @@
+.env
+.venv/
+data/
+__pycache__/
+.pytest_cache/
+*.log
+.dev.vars
+.wrangler/
+node_modules/
+
+# Credentials, local databases and generated run results
+.env.*
+!.env.example
+.dev.vars.*
+!.dev.vars.example
+*.sqlite
+*.sqlite-*
+*.db
+.DS_Store
+verification/*.json

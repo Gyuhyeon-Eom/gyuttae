@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#f6f3ec"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="곁에"><title>곁에 · 나의 대화</title><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icons/icon-192.png"><link rel="icon" type="image/svg+xml" href="/icons/icon.svg"><link rel="stylesheet" href="/theme.css"><link rel="stylesheet" href="/app.css"></head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24">
+      <line x1="21" y1="5" x2="14" y2="5"/><line x1="10" y1="5" x2="3" y2="5"/>
+      <line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/>
+      <line x1="21" y1="19" x2="16" y2="19"/><line x1="12" y1="19" x2="3" y2="19"/>
+      <line x1="14" y1="3" x2="14" y2="7"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="17" x2="16" y2="21"/>
+    </symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+      <circle cx="12" cy="13" r="4"/>
+    </symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/>
+    </symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></symbol>
+    <symbol id="i-speaker" viewBox="0 0 24 24">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+    </symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24">
+      <path d="M12 6C9-1 1 2 3 8c-6 3-2 11 4 9 2 7 11 5 10-1 7-1 7-10 1-11-2-4-5-3-6 1Z" fill="currentColor" stroke="none"/><circle cx="9" cy="10" r=".8" fill="#fffefa" stroke="none"/><circle cx="14" cy="10" r=".8" fill="#fffefa" stroke="none"/><path d="M9.5 13q2 2 4 0" stroke="#fffefa" stroke-width="1.2"/>
+    </symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20 5.5c-2.5-2.6-6.2-1.7-8 1-1.8-2.7-5.5-3.6-8-1C.8 9 4.3 14.4 12 20c7.7-5.6 11.2-11 8-14.5Z"/><path d="m8 12 2.5 2.5L16 9"/></symbol>
+    <symbol id="i-letter" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  </defs>
+</svg>
+<div class="frame">
+  <header class="appbar">
+    <button class="icon-btn" id="open-rooms" aria-label="대화 목록"><svg class="icon"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+    <h1><svg class="icon family-mark" aria-hidden="true"><use href="#i-heart"/></svg>곁에 <span class="count">나의 대화</span></h1>
+    <button class="icon-btn" id="open-settings" aria-label="내 안내 설정"><svg class="icon"><use href="#i-settings"/></svg></button>
+  </header>
+  <div class="room-bar"><span id="room-title">나의 대화</span><button id="mode-pill">쉽게 듣기</button></div>
+  <div id="connection" role="status" hidden></div>
+  <main class="chat" id="chat" aria-label="대화 내용"></main>
+  <div id="attachment-preview" hidden><img alt="보낼 사진"><span>사진을 함께 보낼게요</span><button id="remove-attachment" aria-label="사진 첨부 취소">×</button></div>
+  <form class="input-bar" id="composer">
+    <button class="icon-btn" type="button" id="attach" aria-label="사진 첨부"><svg class="icon"><use href="#i-camera"/></svg></button>
+    <textarea id="message" rows="1" maxlength="6000" placeholder="무엇을 도와드릴까요?" aria-label="메시지"></textarea>
+    <button class="send-btn" id="send" type="submit" aria-label="메시지 보내기"><svg class="icon"><use href="#i-send"/></svg></button>
+    <input type="file" id="photo" accept="image/*" hidden>
+  </form>
+</div>
+<dialog class="panel" id="settings">
+  <div class="panel-head"><h2>나에게 맞게</h2><button class="icon-btn" data-close aria-label="설정 닫기">×</button></div>
+  <p class="sheet-desc">새로 받는 답변에 적용돼요.</p>
+  <div class="option-group" id="modes">
+    <label class="option"><input type="radio" name="mode" value="easy"><span class="option-body"><b>쉽게 알려주세요</b><small>큰 글씨로, 꼭 필요한 것만</small></span></label>
+    <label class="option"><input type="radio" name="mode" value="guided"><span class="option-body"><b>한 단계씩 알려주세요</b><small>하나 끝나면 다음으로</small></span></label>
+    <label class="option"><input type="radio" name="mode" value="expert"><span class="option-body"><b>자세히 알려주세요</b><small>핵심 정보와 다음에 할 일까지</small></span></label>
+  </div>
+  <button class="setting-row" id="devices">다른 기기에서 이어보기 <span>›</span></button>
+  <button class="setting-row" id="install">홈 화면에 곁에 추가하기 <span>›</span></button>
+  <p class="privacy-note">대화는 곁에 서버에 저장돼요. 보낸 글과 사진, 최근 대화 일부를 Claude에 전달해 답변을 받아요. 최근 8개 문답을 참고하며, 이전 사진의 원본은 다시 전달하지 않아요.</p>
+</dialog>
+<dialog class="panel" id="rooms-panel">
+  <div class="panel-head"><h2>나눈 이야기</h2><button class="icon-btn" data-close aria-label="대화 목록 닫기">×</button></div>
+  <button class="chip primary block" id="new-room">새로운 이야기 시작하기</button>
+  <div id="rooms-list"></div>
+</dialog>
+<dialog class="panel" id="device-panel">
+  <div class="panel-head"><h2>대화 이어보기</h2><button class="icon-btn" data-close aria-label="기기 연결 닫기">×</button></div>
+  <p class="sheet-desc">다른 휴대폰이나 컴퓨터에서도 같은 대화를 볼 수 있어요.</p>
+  <p id="access-hint" class="device-hint" hidden></p>
+  <button class="chip primary block" id="make-code">이 기기의 연결 코드 만들기</button>
+  <output id="pair-code" hidden></output>
+  <p class="device-hint">다른 기기에서 곁에를 열고 아래에 코드를 입력해 주세요. 코드는 10분 동안 한 번 쓸 수 있어요.</p>
+  <form id="claim-form"><label for="pair-input">다른 기기에서 받은 코드</label><input id="pair-input" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" placeholder="8자리 숫자" autocomplete="off" required><button class="chip primary block" type="submit">대화 연결하기</button></form>
+  <p class="device-hint">연결하면 코드를 만든 기기의 대화로 전환돼요. 이 기기의 기존 대화가 합쳐지지는 않아요.</p>
+</dialog>
+<dialog class="panel" id="install-panel">
+  <div class="panel-head"><h2>곁에를 홈 화면에</h2><button class="icon-btn" data-close aria-label="설치 안내 닫기">×</button></div>
+  <p id="install-note" class="sheet-desc"></p>
+  <button id="install-now" class="chip primary block" hidden>곁에 설치하기</button>
+  <div class="install-step"><b>아이폰 · Safari</b><p>공유 버튼 → 홈 화면에 추가 → 추가</p></div>
+  <div class="install-step"><b>안드로이드 · Chrome</b><p>메뉴(⋮) → 앱 설치 또는 홈 화면에 추가</p></div>
+  <p class="device-hint">인터넷에 연결되어 있어야 새 답변을 받을 수 있어요. 이 버전은 스토어 배포 전의 개인 테스트 앱이에요.</p>
+</dialog>
+<div id="toast" role="status" hidden></div>
+<script src="/app.js" defer></script>
+</body></html>
