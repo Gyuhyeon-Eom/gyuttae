@@ -101,7 +101,7 @@ async function boot() {
     const session=await api('/api/session','POST');state.account=session.account||{};state.profile=session.profile;profileUI();if(session.access_code){$('#access-hint').textContent='휴대폰에서 처음 열 때 입력할 접속 코드: '+session.access_code;$('#access-hint').hidden=false;}
     state.rooms=await api('/api/rooms');
     const room=state.rooms.find(r=>r.id===recall('room'))||state.rooms[0];
-    await chooseRoom(room.id);state.ready=true;buttons();
+    await chooseRoom(room.id);state.ready=true;buttons();$('#entry').hidden=true;$('#app-frame').hidden=false;
     if(!session.ai_ready)network('AI 연결 설정이 아직 준비되지 않았어요.');
     const outbox=recall('outbox');
     if(outbox){
@@ -110,16 +110,22 @@ async function boot() {
     }
   }catch(e){
     if(e.status===401){
-      state.ready=false;buttons();
+      state.ready=false;buttons();$('#app-frame').hidden=true;$('#entry').hidden=false;
       const auth=await api('/api/auth/status').catch(()=>({google_enabled:false}));
-      $('#chat').innerHTML='<div class="welcome"><div class="welcome-symbol">'+symbol.replace('class="icon"','class="welcome-symbol"')+'</div><h2>내 곁에에 연결하기</h2><p>계정을 연결하셨다면 Google로 로그인해 주세요.<br>처음 오셨다면 초대받은 접속 코드로 시작해요.</p><form id="unlock-form"><input id="access-input" aria-label="접속 코드" inputmode="numeric" autocomplete="off" placeholder="12자리 접속 코드" maxlength="12" required><button class="chip primary block" type="submit">곁에 시작하기</button></form><div id="google-entry"></div></div>';
-      if(!auth.google_enabled)$('#chat .welcome > p').textContent='전달받은 테스트용 접속 코드로 시작해 주세요. 한 번 연결하면 이 기기에서 계속 쓸 수 있어요.';
-      if(auth.google_enabled){$('#google-entry').innerHTML='<div class="auth-divider">이미 계정을 연결하셨나요?</div><button class="google-button" id="login-google" type="button"><span aria-hidden="true">G</span> Google로 로그인</button><p class="device-hint">같은 Google 계정으로 로그인하면 이전 대화를 되찾아요.</p>';$('#login-google').onclick=()=>startGoogle($('#login-google'));}
-      $('#unlock-form').onsubmit=async ev=>{ev.preventDefault();try{await api('/api/session','POST',{access_code:$('#access-input').value});await boot();}catch(error){toast(error.message);}};
+      $('#entry-login').hidden=!auth.google_enabled;
       return;
     }
-    network(e.message);$('#chat').innerHTML='<div class="welcome"><h2>연결을 기다리고 있어요.</h2><p>서버가 켜져 있는지 확인해 주세요.</p><button class="chip ghost" id="reconnect">다시 연결하기</button></div>';$('#reconnect').onclick=boot;}
+    $('#entry-status').hidden=false;$('#entry-status').textContent='연결이 잠시 어려워요. 인터넷 연결을 확인하고 다시 시작해 주세요.';}
 }
+$('#entry-start').onclick=()=>{$('#entry-welcome').hidden=true;$('#entry-connect').hidden=false;$('#entry-back').focus();};
+$('#entry-back').onclick=()=>{$('#entry-connect').hidden=true;$('#entry-welcome').hidden=false;$('#entry-start').focus();};
+$('#entry-login').onclick=()=>startGoogle($('#entry-login'));
+$('#unlock-form').onsubmit=async e=>{
+  e.preventDefault();const button=$('#entry-submit');button.disabled=true;button.textContent='연결하고 있어요…';$('#entry-error').hidden=true;$('#entry-status').hidden=true;
+  try{await api('/api/session','POST',{access_code:$('#access-input').value.trim()});$('#access-input').value='';await boot();}
+  catch(error){$('#entry-error').textContent=error.message;$('#entry-error').hidden=false;}
+  finally{button.disabled=false;button.innerHTML='시작하기 <span aria-hidden="true">→</span>';}
+};
 $('#composer').addEventListener('submit',async e=>{
   e.preventDefault();if($('#send').disabled)return;
   const text=$('#message').value.trim(), image=state.image;

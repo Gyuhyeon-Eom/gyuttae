@@ -64,3 +64,34 @@
 .auth-divider{font-size:13px;color:#73786d;margin:24px 0 12px}
 .account-email{padding:14px 16px;border-radius:14px;background:#f1f3ed;color:#41523c;overflow-wrap:anywhere}
 .account-help{display:inline-block;color:#4e6545;font-size:14px;padding:8px 0}
+
+/* A separate entry surface keeps account setup out of the conversation UI. */
+[hidden]{display:none!important}
+.entry{width:100%;max-width:440px;min-height:100dvh;margin:auto;background:#f8f5ee;color:var(--ink);padding:24px 28px max(24px,env(safe-area-inset-bottom));display:flex;flex-direction:column;overflow:auto}
+.entry-brand{display:flex;align-items:center;gap:8px;padding-top:env(safe-area-inset-top);font-size:21px;font-weight:650;letter-spacing:-.04em}
+.entry-brand .icon{width:26px;height:26px;color:#748568}.entry-brand small{margin-left:auto;color:#858777;font-size:11px;font-weight:400;letter-spacing:0}
+.entry-body{display:flex;flex:1;flex-direction:column;text-align:center}
+.entry-art{position:relative;height:230px;width:100%;max-width:330px;margin:24px auto 8px;flex-shrink:0}
+.entry-orbit{position:absolute;inset:25px 40px 4px;border-radius:48% 52% 46% 54%;background:#e9ecdf;transform:rotate(-12deg)}
+.entry-friend{position:absolute;width:116px;height:116px;left:calc(50% - 58px);top:77px;color:#829574;filter:drop-shadow(0 9px 0 #d8decb)}
+.entry-note{position:absolute;padding:12px 17px;border-radius:19px;background:#fffefa;box-shadow:0 5px 18px #626c4710;font-size:12px;color:#67725c}
+.note-one{top:25px;left:0;transform:rotate(-7deg)}.note-two{bottom:5px;right:0;transform:rotate(5deg)}
+.entry-leaf{position:absolute;right:36px;top:48px;width:15px;height:27px;border-radius:100% 0 100% 0;background:#c4cdb7;transform:rotate(20deg)}
+.entry-eyebrow{color:#738366;font-size:13px;letter-spacing:.02em;margin:14px 0 10px}
+.entry h1{font-size:36px;line-height:1.32;font-weight:550;letter-spacing:-.065em;margin:0;word-break:keep-all}
+.entry-copy{font-size:15px;line-height:1.85;color:#777c6e;margin:20px 0 0;word-break:keep-all}
+.entry-features{display:flex;justify-content:center;gap:22px;margin:24px 0;color:#727b67;font-size:11px}
+.entry-features span{display:flex;gap:6px;align-items:center}.entry-features .icon{width:17px;height:17px}
+.entry-actions{margin-top:auto;padding-top:12px}
+.entry-primary{width:100%;min-height:56px;border:0;border-radius:18px;background:#647952;color:#fffefa;font:inherit;font-size:16px;cursor:pointer;display:flex;justify-content:center;align-items:center;gap:20px;box-shadow:0 6px 16px #4b61351a}
+.entry-primary:disabled{opacity:.6;cursor:wait}.entry-primary span{font-size:22px;font-weight:400}
+.entry-login{border:0;background:transparent;color:#5d6e50;font:inherit;font-size:13px;padding:16px 0 0;cursor:pointer}
+.entry-footnote{font-size:11px;color:#8b8e80;line-height:1.7;margin:16px 0 0}
+.entry-connect{text-align:left;padding-top:28px}.entry-back{border:0;background:transparent;color:#727b67;align-self:flex-start;padding:8px 0;font:inherit;font-size:14px;cursor:pointer}.entry-back span{margin-right:8px}
+.entry-small-mark{margin:48px 0 14px}.entry-small-mark .icon{width:52px;height:52px;color:#81956d}.entry-connect h1{font-size:29px}.entry-connect .entry-copy{margin-top:18px}
+.entry-connect form{margin:32px 0 0}.entry-connect label{display:block;font-size:13px;color:#68715e;margin-bottom:10px}.entry-connect #access-input{min-height:58px;letter-spacing:.12em;background:#fffefa}.entry-connect #access-input::placeholder{letter-spacing:0;color:#a0a394}
+.entry-data-note{font-size:11px;line-height:1.8;color:#8b8e80;margin-top:auto;padding-top:48px;text-align:center}
+#entry-error{font-size:13px;line-height:1.6;color:#966040;margin:0 0 16px}#entry-status{font-size:13px;color:#966040;text-align:center;line-height:1.6;margin-top:14px}
+.entry button:focus-visible,.entry input:focus-visible{outline:3px solid #a6b598;outline-offset:4px}
+@media(min-width:600px) and (min-height:700px){.entry{min-height:0;height:calc(100dvh - 40px);max-height:900px;border:1px solid #e8e7dc;border-radius:32px;box-shadow:0 12px 45px #4b573413}}
+@media(max-height:740px){.entry-art{height:178px;margin-top:14px}.entry-friend{top:55px;width:96px;height:96px;left:calc(50% - 48px)}.entry h1{font-size:31px}.entry-copy{margin-top:14px}.entry-features{margin:18px 0}.entry-orbit{inset:20px 50px 0}.entry-small-mark{margin-top:24px}}

@@ -30,7 +30,28 @@
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
   </defs>
 </svg>
-<div class="frame">
+<section class="entry" id="entry" aria-label="곁에 시작하기">
+  <header class="entry-brand"><svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg><span>곁에</span><small>일상을 함께, 천천히</small></header>
+  <main class="entry-body" id="entry-welcome">
+    <div class="entry-art" aria-hidden="true"><div class="entry-orbit"></div><span class="entry-note note-one">어떻게 하면 될까요?</span><svg class="entry-friend"><use href="#i-spark"/></svg><span class="entry-note note-two">함께 해봐요.</span><span class="entry-leaf"></span></div>
+    <p class="entry-eyebrow">잘 몰라도 괜찮아요</p>
+    <h1>어려운 일상에,<br>당신 곁에.</h1>
+    <p class="entry-copy">궁금한 건 편하게 물어보세요.<br>사진 속 낯선 화면도, 어려운 문자도<br>하나씩 함께 살펴볼게요.</p>
+    <div class="entry-features"><span><svg class="icon"><use href="#i-camera"/></svg>사진으로 물어보고</span><span><svg class="icon"><use href="#i-heart"/></svg>내 속도에 맞게</span></div>
+    <div class="entry-actions"><button class="entry-primary" id="entry-start">곁에 시작하기 <span aria-hidden="true">→</span></button><button class="entry-login" id="entry-login" hidden>이미 계정이 있어요 · Google로 로그인</button><p class="entry-footnote">현재는 초대받은 분들과 함께하고 있어요.</p></div>
+  </main>
+  <main class="entry-body entry-connect" id="entry-connect" hidden>
+    <button class="entry-back" id="entry-back"><span aria-hidden="true">←</span> 돌아가기</button>
+    <div class="entry-small-mark"><svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg></div>
+    <p class="entry-eyebrow">반가워요</p><h1>우리, 시작해 볼까요?</h1>
+    <p class="entry-copy">초대받을 때 전달받은<br>12자리 접속 코드를 입력해 주세요.</p>
+    <form id="unlock-form"><label for="access-input">접속 코드</label><input id="access-input" inputmode="numeric" pattern="[0-9]{12}" autocomplete="off" placeholder="12자리 숫자" minlength="12" maxlength="12" required aria-describedby="entry-error"><p id="entry-error" role="alert" hidden></p><button class="entry-primary" id="entry-submit" type="submit">시작하기 <span aria-hidden="true">→</span></button></form>
+    <p class="entry-footnote">코드가 없다면 초대해 주신 분께 요청해 주세요.</p>
+    <p class="entry-data-note">보낸 글과 사진은 AI 답변을 위해 처리되고,<br>대화는 다음에도 이어볼 수 있도록 저장돼요.</p>
+  </main>
+  <p id="entry-status" role="status" hidden></p>
+</section>
+<div class="frame" id="app-frame" hidden>
   <header class="appbar">
     <button class="icon-btn" id="open-rooms" aria-label="대화 목록"><svg class="icon"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
     <h1><svg class="icon family-mark" aria-hidden="true"><use href="#i-heart"/></svg>곁에 <span class="count">나의 대화</span></h1>
