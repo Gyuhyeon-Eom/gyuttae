@@ -55,23 +55,24 @@ function steps(t) {
   </div>`;
 }
 function answer(t) {
+  if(t.status==='message')return '';
   if(t.status==='pending')return '<div class="pending" role="status"><span class="pending-dots"><i></i><i></i><i></i></span>차근차근 살펴보고 있어요</div>';
-  if(t.status==='failed')return `<div class="error-box">${esc(t.error)}<br><button class="chip ghost" data-retry="${t.id}">다시 시도하기</button></div>`;
+  if(t.status==='failed')return `<div class="error-box">${esc(t.error)}<br>${t.mine===false?'<small>질문한 사람이 다시 요청할 수 있어요.</small>':`<button class="chip ghost" data-retry="${t.id}">다시 시도하기</button>`}</div>`;
   const a=t.answer;
   return `<div class="bubble">${fmt(a.summary)}</div>
     <button class="answer-speech" data-voice="${t.id}">${icon('speaker')} 소리로 듣기</button>
     ${a.caution?`<div class="alert-badge">${icon('clock')}<span>${fmt(a.caution)}</span></div>`:''}
-    ${a.facts.length?`<div class="task-card">${details(a,t.mode)}</div>`:''}
+    ${a.facts.length?(t.mode==='expert'?`<div class="task-card">${details(a,t.mode)}</div>`:`<details class="task-card"><summary>자세한 정보 보기</summary>${details(a,t.mode)}</details>`):''}
     ${steps(t)}
     ${a.question?`<div class="follow-up"><b>조금만 더 알려주세요</b>${fmt(a.question)}</div>`:''}
-    ${a.suggestions.length?`<div class="suggest-list"><div class="suggest-cap">이어서 물어보세요</div>${a.suggestions.map((s,i)=>`<button class="suggest-action" data-suggestion="${t.id}" data-index="${i}"><span>${esc(s)}</span><span class="chev">›</span></button>`).join('')}</div>`:''}`;
+    ${a.suggestions.length&&t.mode==='expert'?`<div class="suggest-list"><div class="suggest-cap">이어서 물어보세요</div>${a.suggestions.map((s,i)=>`<button class="suggest-action" data-suggestion="${t.id}" data-index="${i}"><span>${esc(s)}</span><span class="chev">›</span></button>`).join('')}</div>`:''}`;
 }
 function render(forceBottom=false) {
   const chat=$('#chat'), bottom=chat.scrollHeight-chat.scrollTop-chat.clientHeight<90, scroll=chat.scrollTop;
   if(!state.turns.length) {
-    chat.innerHTML=`<div class="welcome"><div class="welcome-symbol">${symbol.replace('class="icon"','class="welcome-symbol"')}</div><h2>어려운 일상에,<br>곁에가 함께할게요.</h2><p>궁금한 걸 편하게 적어주세요.<br>받은 문자나 사진도 함께 살펴볼게요.</p><div class="starters"><button data-starter="받은 문자가 무슨 뜻인지 알고 싶어요.">받은 문자, 같이 읽어주세요 <span>›</span></button><button data-starter="휴대폰 글씨를 크게 바꾸고 싶어요.">휴대폰 쓰는 게 어려워요 <span>›</span></button></div></div>`;
+    chat.innerHTML=currentRoom()?.kind==='family'?`<div class="welcome"><div class="welcome-symbol">${symbol}</div><h2>함께 이야기해요.</h2><p>구성원·초대에서 가족을 초대해 주세요.<br>메시지와 사진을 나누고 약속을 정리할 수 있어요.</p></div>`:`<div class="welcome"><div class="welcome-symbol">${symbol.replace('class="icon"','class="welcome-symbol"')}</div><h2>어려운 일상에,<br>곁에가 함께할게요.</h2><p>궁금한 걸 편하게 적어주세요.<br>받은 문자나 사진도 함께 살펴볼게요.</p><div class="starters"><button data-starter="받은 문자가 무슨 뜻인지 알고 싶어요.">받은 문자, 같이 읽어주세요 <span>›</span></button><button data-starter="휴대폰 글씨를 크게 바꾸고 싶어요.">휴대폰 쓰는 게 어려워요 <span>›</span></button></div></div>`;
   } else {
-    chat.innerHTML=state.turns.map(t=>`<section class="turn" data-turn="${t.id}"><div class="msg me"><div class="msg-body"><div class="msg-meta"><b>${esc(state.profile.name)}</b>${stamp(t.created)}</div><div class="bubble">${t.has_image?`<img class="user-photo" src="/api/turns/${t.id}/image" alt="내가 보낸 사진" loading="lazy">`:''}${t.text?`<div class="user-text">${esc(t.text)}</div>`:''}</div></div></div><div class="msg ai-answer" data-mode="${t.mode}"><div class="avatar ai">${symbol}</div><div class="msg-body wide"><div class="msg-meta"><b>곁에</b>${modes[t.mode]}</div>${answer(t)}</div></div></section>`).join('');
+    chat.innerHTML=state.turns.map(t=>`<section class="turn" data-turn="${t.id}"><div class="msg ${t.mine===false?'family-message':'me'}"><div class="msg-body"><div class="msg-meta"><b>${esc(t.author||state.profile.name)}</b>${stamp(t.created)}</div><div class="bubble">${t.has_image?`<img class="user-photo" src="/api/turns/${t.id}/image" alt="대화에 첨부된 사진" loading="lazy">`:''}${t.text?`<div class="user-text">${esc(t.text)}</div>`:''}</div></div></div><div class="msg ai-answer" ${t.status==='message'?'hidden':''} data-mode="${state.profile.mode}"><div class="avatar ai">${symbol}</div><div class="msg-body wide"><div class="msg-meta"><b>곁에</b>${modes[state.profile.mode]}</div>${answer({...t,mode:state.profile.mode})}</div></div>${messageActions(t)}</section>`).join('');
   }
   buttons();
   if(forceBottom||bottom)chat.scrollTop=chat.scrollHeight; else chat.scrollTop=scroll;
@@ -84,7 +85,7 @@ function poll() {
     try {
       const turns=await api(`/api/rooms/${room}/turns`);
       if(room!==state.room)return;
-      if(JSON.stringify(turns)!==JSON.stringify(state.turns)){state.turns=turns;render();}
+      if(JSON.stringify(turns)!==JSON.stringify(state.turns)){state.turns=turns;render();if(state.rooms.find(r=>r.id===room)?.kind==='family')api(`/api/rooms/${room}/seen`,'POST',{}).catch(()=>{});}
       network();
     }catch(e){network(e.message);}
     poll();
@@ -94,12 +95,12 @@ async function chooseRoom(id) {
   const version=++state.loading;
   const turns=await api(`/api/rooms/${id}/turns`);
   if(version!==state.loading)return;
-  state.room=id;state.turns=turns;remember('room',id);renderRooms();render(true);poll();
+  state.room=id;state.turns=turns;remember('room',id);renderRooms();updateRoomTools();render(true);poll();if(state.rooms.find(r=>r.id===id)?.kind==='family')api(`/api/rooms/${id}/seen`,'POST',{}).catch(()=>{});
 }
 async function boot() {
   try {
-    const session=await api('/api/session','POST');state.account=session.account||{};state.profile=session.profile;profileUI();if(session.access_code){$('#access-hint').textContent='휴대폰에서 처음 열 때 입력할 접속 코드: '+session.access_code;$('#access-hint').hidden=false;}
-    state.rooms=await api('/api/rooms');
+    const session=await api('/api/session','POST');state.uid=session.uid;if(new URLSearchParams(location.search).has('preview'))history.replaceState(null,'',location.pathname);state.account=session.account||{};state.profile=session.profile;profileUI();if(session.access_code){$('#access-hint').textContent='휴대폰에서 처음 열 때 입력할 접속 코드: '+session.access_code;$('#access-hint').hidden=false;}
+    state.rooms=await api('/api/rooms');await loadFeatures();
     const room=state.rooms.find(r=>r.id===recall('room'))||state.rooms[0];
     await chooseRoom(room.id);state.ready=true;buttons();showHome(false);
     if(!session.ai_ready)network('AI 연결 설정이 아직 준비되지 않았어요.');
@@ -129,8 +130,8 @@ $('#unlock-form').onsubmit=async e=>{
 $('#composer').addEventListener('submit',async e=>{
   e.preventDefault();if($('#send').disabled)return;
   const text=$('#message').value.trim(), image=state.image;
-  const same=state.outbox&&state.outbox.room===state.room&&state.outbox.body.text===text&&state.outbox.body.image===(image?.data||null);
-  const body=same?state.outbox.body:{request_id:makeId(),text,image:image?.data||null,image_type:image?.type||null};
+  const same=state.outbox&&state.outbox.room===state.room&&state.outbox.body.text===text&&state.outbox.body.image===(image?.data||null)&&!!state.outbox.body.ask_ai===$('#ask-ai').checked;
+  const body=same?state.outbox.body:{request_id:makeId(),text,image:image?.data||null,image_type:image?.type||null,ask_ai:$('#ask-ai').checked};
   state.outbox={room:state.room,body};remember('outbox',state.outbox);state.sending=true;buttons();
   try {
     const turn=await api(`/api/rooms/${state.room}/turns`,'POST',body);
@@ -146,11 +147,11 @@ $('#chat').addEventListener('click',async e=>{
   const id=btn.dataset.step||btn.dataset.help||btn.dataset.voice||btn.dataset.retry||btn.dataset.suggestion;
   const t=state.turns.find(t=>t.id===id);if(!t)return;
   if(btn.dataset.suggestion){prefill(t.answer.suggestions[Number(btn.dataset.index)]);return;}
-  if(btn.dataset.help){prefill(`“${t.answer.steps[t.completed].action}”에서 막혔어요. 더 쉽게 설명해 주세요.`);return;}
+  if(btn.dataset.help){if(currentRoom()?.kind==='family')$('#ask-ai').checked=true;prefill(`“${t.answer.steps[t.completed].action}”에서 막혔어요. 더 쉽게 설명해 주세요.`);return;}
   if(btn.dataset.voice){
     if(!('speechSynthesis' in window)){toast('이 브라우저에서는 소리로 듣기를 지원하지 않아요.');return;}
     if(speechSynthesis.speaking){speechSynthesis.cancel();btn.innerHTML=icon('speaker')+' 소리로 듣기';return;}
-    const u=new SpeechSynthesisUtterance(t.answer.voice||t.answer.summary);u.lang='ko-KR';u.rate=.9;
+    const u=new SpeechSynthesisUtterance(t.answer.voice||t.answer.summary);u.lang='ko-KR';u.rate=live.preferences.speech;
     btn.innerHTML=icon('speaker')+' 멈추기';const reset=()=>btn.innerHTML=icon('speaker')+' 소리로 듣기';u.onend=reset;u.onerror=()=>{reset();toast('이 기기에서 한국어 음성을 재생하지 못했어요.');};speechSynthesis.speak(u);return;
   }
   btn.disabled=true;
@@ -163,7 +164,7 @@ $('#chat').addEventListener('click',async e=>{
 $('#open-settings').onclick=$('#mode-pill').onclick=()=>{profileUI();showDialog('#settings');};
 $('#modes').addEventListener('change',async e=>{
   if(!e.target.matches('input'))return;
-  try{state.profile=await api('/api/profile','PUT',{...state.profile,mode:e.target.value});profileUI();$('#settings').close();toast('다음 답변부터 이 방식으로 알려드릴게요.');}
+  try{state.profile=await api('/api/profile','PUT',{...state.profile,mode:e.target.value});profileUI();render();$('#settings').close();toast('내 화면에 적용했어요. 다음 AI 답변도 이 방식으로 안내해요.');}
   catch(err){profileUI();toast(err.message);}
 });
 $('#open-rooms').onclick=async()=>{try{state.rooms=await api('/api/rooms');showHome(false);}catch(e){toast(e.message);}};
@@ -244,6 +245,7 @@ const sampleAgenda={
 };
 let agendaTab='events';
 function renderAgenda(){
+ if(!homeDemo){liveRenderAgenda();return;}
  const pending=sampleAgenda.tasks.filter(t=>!t.done).length;
  $('#agenda-summary').innerHTML=homeDemo?`<button class="agenda-next" id="agenda-next"><span class="agenda-date"><small>이번 주</small><b>토</b></span><span class="agenda-next-copy"><small>오전 11:00 · 우리 가족</small><strong>서울역에서 만나요</strong><span>3번 출구 · 가족 나들이</span></span><span class="agenda-arrow">›</span></button><button class="agenda-task-summary" id="agenda-open-tasks"><span><i></i>챙길 일 <b>${pending}개</b> 남았어요</span><span>확인하기 ›</span></button>`:'<p class="agenda-empty">아직 모아둔 약속이 없어요.<br><span>약속과 할 일을 모으는 기능을 준비하고 있어요.</span></p>';
  if(homeDemo){$('#agenda-next').onclick=()=>openAgenda('events');$('#agenda-open-tasks').onclick=()=>openAgenda('tasks');}
@@ -251,6 +253,7 @@ function renderAgenda(){
 }
 function openAgenda(tab){agendaTab=tab;renderAgendaItems();showDialog('#agenda-panel');}
 function renderAgendaItems(){
+ if(!homeDemo){liveRenderAgendaItems();return;}
  const events=agendaTab==='events';
  $('#agenda-events').setAttribute('aria-pressed',String(events));$('#agenda-todos').setAttribute('aria-pressed',String(!events));
  $('#agenda-demo-note').hidden=!homeDemo;
@@ -265,11 +268,12 @@ function showHome(demo){
  $('#entry').hidden=true;$('#app-frame').hidden=true;$('#sample-room').hidden=true;$('#home-screen').hidden=false;
  $('#home-demo-note').hidden=!demo;$('#home-help-card').hidden=!demo;$('#home-help-dot').hidden=!demo;
  $('#home-greeting').textContent=demo?'지은 님, 오늘도 반가워요.':`${state.profile.name} 님, 오늘도 반가워요.`;
- $('#home-settings').textContent=demo?'지':state.profile.name.slice(0,1);renderHome();
+ $('#home-settings').textContent=demo?'지':state.profile.name.slice(0,1);$('#live-home-actions').hidden=demo;renderHome();if(!demo)startHomePolling();
 }
 function renderHome(){
  renderAgenda();
- const all=homeDemo?sampleRooms:state.rooms.map(r=>({...r,kind:'personal',initials:['나'],members:'나만 보는 개인 대화',preview:'이전 이야기를 이어가세요.',time:new Date(r.created*1000).toLocaleDateString('ko-KR',{month:'short',day:'numeric'}),unread:0}));
+ const all=homeDemo?sampleRooms:state.rooms.map(r=>({...r,kind:r.kind||'personal',initials:r.kind==='family'?r.members.slice(0,4).map(m=>m.name.slice(0,1)):['나'],members:r.kind==='family'?r.members.map(m=>m.name).join(' · '):'나만 보는 개인 대화',preview:r.preview||'새로운 이야기를 시작하세요.',time:new Date((r.updated||r.created)*1000).toLocaleDateString('ko-KR',{month:'short',day:'numeric'}),unread:r.unread||0}));
+ if(!homeDemo&&homeView==='help'){liveRenderHelp();return;}
  const rooms=all.filter(r=>homeView==='help'?r.id==='mom':homeFilter==='all'||r.kind===homeFilter);
  $('#home-section-title').firstChild.textContent=homeView==='help'?'도움 요청 ':'나눈 이야기 ';
  $('#home-room-count').textContent=rooms.length;$('#home-filters').hidden=homeView==='help';$('#home-new').hidden=homeView==='help';
@@ -285,7 +289,7 @@ function openSample(id){
 async function openAccountEntry(){document.querySelectorAll('dialog[open]').forEach(d=>d.close());$('#home-screen').hidden=true;$('#sample-room').hidden=true;$('#entry').hidden=false;$('#entry-welcome').hidden=true;$('#entry-connect').hidden=false;$('#entry-back').focus();const auth=await api('/api/auth/status').catch(()=>({google_enabled:false}));$('#connect-google').hidden=!auth.google_enabled;}
 $('#home-room-list').onclick=async e=>{const b=e.target.closest('[data-home-room]');if(!b)return;if(homeDemo){openSample(b.dataset.homeRoom);return;}try{await chooseRoom(b.dataset.homeRoom);$('#home-screen').hidden=true;$('#app-frame').hidden=false;render(true);}catch(err){toast(err.message);}};
 $('#home-filters').onclick=e=>{const b=e.target.closest('[data-filter]');if(b){homeFilter=b.dataset.filter;renderHome();}};
-$('#home-help-card').onclick=()=>openSample('mom');$('#sample-back').onclick=()=>{$('#sample-room').hidden=true;$('#home-screen').hidden=false;};
+$('#home-help-card').onclick=()=>{if(homeDemo)openSample('mom');else{homeView='help';renderHome();}};$('#sample-back').onclick=()=>{$('#sample-room').hidden=true;$('#home-screen').hidden=false;};
 $('#home-connect').onclick=$('#sample-connect').onclick=openAccountEntry;
 $('#entry-back').onclick=()=>showHome(!state.ready);
 $('#home-new').onclick=async()=>{if(homeDemo){openAccountEntry();return;}try{const r=await api('/api/rooms','POST');state.rooms=await api('/api/rooms');await chooseRoom(r.id);$('#home-screen').hidden=true;$('#app-frame').hidden=false;render(true);}catch(e){toast(e.message);}};
@@ -297,5 +301,6 @@ if(location.hash.startsWith('#auth=')){
   if(result==='success'){remember('room',null);remember('outbox',null);}
   if(authMessages[result])toast(authMessages[result]);
 }
+initFeatures();
 buttons();
 if(new URLSearchParams(location.search).get('preview')==='home')showHome(true);else boot();
