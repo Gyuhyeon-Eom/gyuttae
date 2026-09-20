@@ -30,7 +30,21 @@
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
   </defs>
 </svg>
-<section class="entry" id="entry" aria-label="곁에 시작하기">
+<section class="home-screen" id="home-screen" aria-label="대화 홈">
+  <div class="home-scroll">
+    <header class="home-header"><div class="home-wordmark"><svg class="icon"><use href="#i-spark"/></svg>곁에</div><button class="home-profile" id="home-settings" aria-label="내 설정">나</button></header>
+    <div class="home-demo-note" id="home-demo-note" hidden><span>사용 중인 모습 · 예시</span><button id="home-connect">내 계정으로 시작하기 ↗</button></div>
+    <div class="home-greeting"><p id="home-greeting">오늘도, 함께라서 괜찮아요.</p><h1>함께 나누는 일상</h1></div>
+    <button class="home-help-card" id="home-help-card" hidden><span class="help-symbol"><svg class="icon"><use href="#i-heart"/></svg></span><span><small>가족의 도움 요청</small><strong>엄마가 잠깐, 도움을 기다려요</strong><span>TV 연결하기 · 마지막 단계에서 막혔어요</span></span><span class="home-chevron">›</span></button>
+    <div class="home-section-title"><h2 id="home-section-title">나눈 이야기 <span id="home-room-count"></span></h2><button id="home-new" aria-label="새 대화 시작">＋ 새 대화</button></div>
+    <div class="home-filters" id="home-filters" role="group" aria-label="대화 필터"><button class="selected" data-filter="all" aria-pressed="true">전체</button><button data-filter="family" aria-pressed="false">함께하는 방</button><button data-filter="personal" aria-pressed="false">나의 방</button></div>
+    <div id="home-room-list"></div>
+    <p class="home-tail" id="home-tail">서로의 일상에, 작은 도움이 되어주세요.</p>
+  </div>
+  <nav class="home-nav" aria-label="주 메뉴"><button class="selected" id="nav-chats"><svg class="icon" viewBox="0 0 24 24"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 3v-3H3V6a2 2 0 0 1 2-2Z"/></svg>대화</button><button id="nav-help"><svg class="icon"><use href="#i-heart"/></svg>도움 요청<span id="home-help-dot" hidden></span></button><button id="nav-settings"><svg class="icon"><use href="#i-settings"/></svg>내 설정</button></nav>
+</section>
+<section class="sample-room" id="sample-room" aria-label="예시 대화" hidden><header><button id="sample-back" aria-label="대화 홈으로">←</button><div><h2 id="sample-title"></h2><p id="sample-members"></p></div><span>예시</span></header><main id="sample-messages"></main><div class="sample-footer">사용 모습을 보여주는 예시 대화예요.<br><button id="sample-connect">내 계정으로 시작하기 →</button></div></section>
+<section class="entry" id="entry" hidden aria-label="곁에 시작하기">
   <header class="entry-brand"><svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg><span>곁에</span><small>일상을 함께, 천천히</small></header>
   <main class="entry-body" id="entry-welcome">
     <div class="entry-art" aria-hidden="true"><div class="entry-orbit"></div><span class="entry-note note-one">어떻게 하면 될까요?</span><svg class="entry-friend"><use href="#i-spark"/></svg><span class="entry-note note-two">함께 해봐요.</span><span class="entry-leaf"></span></div>
@@ -46,6 +60,7 @@
     <p class="entry-eyebrow">반가워요</p><h1>우리, 시작해 볼까요?</h1>
     <p class="entry-copy">초대받을 때 전달받은<br>12자리 접속 코드를 입력해 주세요.</p>
     <form id="unlock-form"><label for="access-input">접속 코드</label><input id="access-input" inputmode="numeric" pattern="[0-9]{12}" autocomplete="off" placeholder="12자리 숫자" minlength="12" maxlength="12" required aria-describedby="entry-error"><p id="entry-error" role="alert" hidden></p><button class="entry-primary" id="entry-submit" type="submit">시작하기 <span aria-hidden="true">→</span></button></form>
+    <button class="entry-login" id="connect-google" type="button" hidden>이미 계정이 있어요 · Google로 로그인</button>
     <p class="entry-footnote">코드가 없다면 초대해 주신 분께 요청해 주세요.</p>
     <p class="entry-data-note">보낸 글과 사진은 AI 답변을 위해 처리되고,<br>대화는 다음에도 이어볼 수 있도록 저장돼요.</p>
   </main>
@@ -53,7 +68,7 @@
 </section>
 <div class="frame" id="app-frame" hidden>
   <header class="appbar">
-    <button class="icon-btn" id="open-rooms" aria-label="대화 목록"><svg class="icon"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+    <button class="icon-btn" id="open-rooms" aria-label="대화 홈으로"><svg class="icon"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
     <h1><svg class="icon family-mark" aria-hidden="true"><use href="#i-heart"/></svg>곁에 <span class="count">나의 대화</span></h1>
     <button class="icon-btn" id="open-settings" aria-label="내 안내 설정"><svg class="icon"><use href="#i-settings"/></svg></button>
   </header>

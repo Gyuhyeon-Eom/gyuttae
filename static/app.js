@@ -101,25 +101,25 @@ async function boot() {
     const session=await api('/api/session','POST');state.account=session.account||{};state.profile=session.profile;profileUI();if(session.access_code){$('#access-hint').textContent='휴대폰에서 처음 열 때 입력할 접속 코드: '+session.access_code;$('#access-hint').hidden=false;}
     state.rooms=await api('/api/rooms');
     const room=state.rooms.find(r=>r.id===recall('room'))||state.rooms[0];
-    await chooseRoom(room.id);state.ready=true;buttons();$('#entry').hidden=true;$('#app-frame').hidden=false;
+    await chooseRoom(room.id);state.ready=true;buttons();showHome(false);
     if(!session.ai_ready)network('AI 연결 설정이 아직 준비되지 않았어요.');
     const outbox=recall('outbox');
     if(outbox){
       try {await api(`/api/turns/${outbox.body.request_id}`);remember('outbox',null);}
-      catch(e){if(e.status===404){state.outbox=outbox;await chooseRoom(outbox.room);$('#message').value=outbox.body.text; if(outbox.body.image){state.image={data:outbox.body.image,type:outbox.body.image_type};showAttachment();}composerResize();toast('보내던 내용이 남아 있어요. 전송 버튼으로 다시 보내세요.');}}
+      catch(e){if(e.status===404){state.outbox=outbox;await chooseRoom(outbox.room);$('#home-screen').hidden=true;$('#app-frame').hidden=false;$('#message').value=outbox.body.text; if(outbox.body.image){state.image={data:outbox.body.image,type:outbox.body.image_type};showAttachment();}composerResize();toast('보내던 내용이 남아 있어요. 전송 버튼으로 다시 보내세요.');}}
     }
   }catch(e){
     if(e.status===401){
-      state.ready=false;buttons();$('#app-frame').hidden=true;$('#entry').hidden=false;
+      state.ready=false;buttons();showHome(true);
       const auth=await api('/api/auth/status').catch(()=>({google_enabled:false}));
-      $('#entry-login').hidden=!auth.google_enabled;
+      $('#entry-login').hidden=!auth.google_enabled;$('#connect-google').hidden=!auth.google_enabled;
       return;
     }
-    $('#entry-status').hidden=false;$('#entry-status').textContent='연결이 잠시 어려워요. 인터넷 연결을 확인하고 다시 시작해 주세요.';}
+    $('#home-tail').textContent='연결이 잠시 어려워요. 인터넷 연결 후 새로고침해 주세요.';$('#entry-status').hidden=false;$('#entry-status').textContent='연결이 잠시 어려워요. 인터넷 연결을 확인하고 다시 시작해 주세요.';}
 }
 $('#entry-start').onclick=()=>{$('#entry-welcome').hidden=true;$('#entry-connect').hidden=false;$('#entry-back').focus();};
 $('#entry-back').onclick=()=>{$('#entry-connect').hidden=true;$('#entry-welcome').hidden=false;$('#entry-start').focus();};
-$('#entry-login').onclick=()=>startGoogle($('#entry-login'));
+$('#entry-login').onclick=()=>startGoogle($('#entry-login'));$('#connect-google').onclick=()=>startGoogle($('#connect-google'));
 $('#unlock-form').onsubmit=async e=>{
   e.preventDefault();const button=$('#entry-submit');button.disabled=true;button.textContent='연결하고 있어요…';$('#entry-error').hidden=true;$('#entry-status').hidden=true;
   try{await api('/api/session','POST',{access_code:$('#access-input').value.trim()});$('#access-input').value='';await boot();}
@@ -166,7 +166,7 @@ $('#modes').addEventListener('change',async e=>{
   try{state.profile=await api('/api/profile','PUT',{...state.profile,mode:e.target.value});profileUI();$('#settings').close();toast('다음 답변부터 이 방식으로 알려드릴게요.');}
   catch(err){profileUI();toast(err.message);}
 });
-$('#open-rooms').onclick=async()=>{try{state.rooms=await api('/api/rooms');renderRooms();showDialog('#rooms-panel');}catch(e){toast(e.message);}};
+$('#open-rooms').onclick=async()=>{try{state.rooms=await api('/api/rooms');showHome(false);}catch(e){toast(e.message);}};
 $('#rooms-list').onclick=async e=>{const b=e.target.closest('[data-room]');if(!b)return;try{await chooseRoom(b.dataset.room);$('#rooms-panel').close();}catch(e){toast(e.message);}};
 $('#new-room').onclick=async()=>{try{const r=await api('/api/rooms','POST');state.rooms=await api('/api/rooms');await chooseRoom(r.id);$('#rooms-panel').close();}catch(e){toast(e.message);}};
 function showAttachment(){const p=$('#attachment-preview');p.hidden=!state.image;if(state.image)p.querySelector('img').src=`data:${state.image.type};base64,${state.image.data}`;else p.querySelector('img').removeAttribute('src');buttons();}
@@ -225,9 +225,47 @@ $('#install').onclick=()=>{
 };
 $('#install-now').onclick=async()=>{if(installPrompt){await installPrompt.prompt();installPrompt=null;$('#install-now').hidden=true;}};
 window.addEventListener('offline',()=>network('인터넷 연결이 끊겼어요. 작성 중인 내용은 이 화면에 남아 있어요.'));
-window.addEventListener('online',()=>{network();if(state.ready)poll();else boot();});
-window.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.ready)poll();});
+window.addEventListener('online',()=>{network();if(state.ready&&!$('#app-frame').hidden)poll();else if(!state.ready)boot();});
+window.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.ready&&!$('#app-frame').hidden)poll();});
 if('serviceWorker' in navigator&&window.isSecureContext)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+const sampleRooms=[
+ {id:'family',kind:'family',title:'우리 가족',members:'지은 · 엄마 · 아빠 · 민준',initials:['지','엄','아','민'],time:'오후 2:42',preview:'엄마: 물이랑 모자 챙겨 둘게 😊',unread:3,tag:'토요일 나들이',messages:[['지은','토요일에 서울역에서 만나서 같이 출발하자!'],['곁에','이번 주 토요일, 오전 11시에 서울역 3번 출구에서 만나요. 준비할 것을 함께 정리했어요.'],['아빠','기차표는 지은이가 가지고 있는 거지?'],['지은','응, 4장 모두 내가 챙겼어.'],['엄마','물이랑 모자 챙겨 둘게 😊']]},
+ {id:'mom',kind:'family',title:'엄마와 함께',members:'지은 · 엄마',initials:['엄','지'],time:'오후 2:30',preview:'TV 화면이 아직 안 나오네. 같이 봐줄래?',unread:1,tag:'도움 요청',messages:[['엄마','TV 화면이 안 나와서 사진으로 물어봤어.'],['곁에','리모컨의 외부 입력 버튼을 누른 다음, 셋톱박스가 연결된 입력을 골라주세요.'],['엄마','HDMI가 두 개 나오는데 어떤 건지 모르겠어.'],['도움 요청','엄마가 마지막 단계에서 도움을 요청했어요. 지은 님의 답변을 기다리고 있어요.']]},
+ {id:'mine',kind:'personal',title:'나의 곁에',members:'나만 보는 개인 대화',initials:['곁'],time:'오전 11:08',preview:'받은 안내 문자, 중요한 내용만 정리했어요.',unread:0,tag:'나만 보는 방',messages:[['나','이 안내 문자에서 뭘 해야 하는지 알려줘.'],['곁에','방문 전에 신분증을 준비해 주세요. 예약 시각은 원문에서 한 번 더 확인하면 좋아요.']]},
+ {id:'outing',kind:'family',title:'주말 나들이',members:'지은 · 엄마 · 아빠 · 민준',initials:['지','민'],time:'어제',preview:'민준: 점심은 도착해서 같이 정하자!',unread:0,tag:'',messages:[['지은','이번 주말엔 다 같이 바람 쐬러 가자.'],['민준','점심은 도착해서 같이 정하자!'],['엄마','좋아. 많이 걷지 않는 곳이면 좋겠어.']]},
+ {id:'phone',kind:'personal',title:'휴대폰, 천천히 배우기',members:'나만 보는 개인 대화',initials:['나'],time:'월요일',preview:'글씨 크기 바꾸기, 차근차근 마쳤어요.',unread:0,tag:'해결했어요',messages:[['나','휴대폰 글씨가 너무 작아.'],['곁에','설정에서 글씨 크기를 조절할 수 있어요. 사용하시는 휴대폰 종류부터 알려주세요.'],['나','알려준 대로 하니까 잘 보여! 고마워.'],['곁에','이제 더 편하게 읽을 수 있겠어요. 다른 궁금한 것도 편하게 물어보세요.']]}
+];
+let homeDemo=false,homeFilter='all',homeView='chats';
+function showHome(demo){
+ homeDemo=demo;homeFilter='all';homeView='chats';clearTimeout(state.polling);++state.loading;
+ $('#entry').hidden=true;$('#app-frame').hidden=true;$('#sample-room').hidden=true;$('#home-screen').hidden=false;
+ $('#home-demo-note').hidden=!demo;$('#home-help-card').hidden=!demo;$('#home-help-dot').hidden=!demo;
+ $('#home-greeting').textContent=demo?'지은 님, 오늘도 반가워요.':`${state.profile.name} 님, 오늘도 반가워요.`;
+ $('#home-settings').textContent=demo?'지':state.profile.name.slice(0,1);renderHome();
+}
+function renderHome(){
+ const all=homeDemo?sampleRooms:state.rooms.map(r=>({...r,kind:'personal',initials:['나'],members:'나만 보는 개인 대화',preview:'이전 이야기를 이어가세요.',time:new Date(r.created*1000).toLocaleDateString('ko-KR',{month:'short',day:'numeric'}),unread:0}));
+ const rooms=all.filter(r=>homeView==='help'?r.id==='mom':homeFilter==='all'||r.kind===homeFilter);
+ $('#home-section-title').firstChild.textContent=homeView==='help'?'도움 요청 ':'나눈 이야기 ';
+ $('#home-room-count').textContent=rooms.length;$('#home-filters').hidden=homeView==='help';$('#home-new').hidden=homeView==='help';
+ $('#home-filters').querySelectorAll('button').forEach(b=>{b.classList.toggle('selected',b.dataset.filter===homeFilter);b.setAttribute('aria-pressed',String(b.dataset.filter===homeFilter));});
+ $('#nav-chats').classList.toggle('selected',homeView==='chats');$('#nav-help').classList.toggle('selected',homeView==='help');
+ $('#home-room-list').innerHTML=rooms.length?rooms.map(r=>`<button class="home-room-row" data-home-room="${esc(r.id)}"><span class="home-room-avatar ${r.initials.length>1?'group-avatar':''} ${r.kind==='personal'?'personal-avatar':''}">${r.initials.map(x=>`<span>${esc(x)}</span>`).join('')}</span><span class="home-room-content"><span class="home-room-heading"><strong>${esc(r.title)}</strong>${r.kind==='family'?`<small>${r.members.split(' · ').length}</small>`:''}</span><span class="home-preview">${esc(r.preview)}</span>${r.tag?`<span class="home-room-tag ${r.id==='mom'?'needs-help':''}">${esc(r.tag)}</span>`:''}</span><span class="home-room-meta"><time>${esc(r.time)}</time>${r.unread?`<b>${r.unread}</b>`:''}</span></button>`).join(''):`<div class="home-empty">${homeView==='help'?'아직 받은 도움 요청이 없어요.':homeFilter==='family'?'함께하는 방을 준비하고 있어요. 지금은 나의 방에서 대화를 시작할 수 있어요.':'아직 나눈 이야기가 없어요. 새로운 대화를 시작해 보세요.'}</div>`;
+}
+function openSample(id){
+ const r=sampleRooms.find(r=>r.id===id);if(!r)return;
+ $('#home-screen').hidden=true;$('#sample-room').hidden=false;$('#sample-title').textContent=r.title;$('#sample-members').textContent=r.members;
+ $('#sample-messages').innerHTML='<p class="sample-day">우리의 일상 · 예시 대화</p>'+r.messages.map(([name,text])=>`<div class="sample-message ${name==='지은'||name==='나'?'sample-me':''}"><small>${esc(name)}</small><p>${esc(text)}</p></div>`).join('');
+}
+async function openAccountEntry(){document.querySelectorAll('dialog[open]').forEach(d=>d.close());$('#home-screen').hidden=true;$('#sample-room').hidden=true;$('#entry').hidden=false;$('#entry-welcome').hidden=true;$('#entry-connect').hidden=false;$('#entry-back').focus();const auth=await api('/api/auth/status').catch(()=>({google_enabled:false}));$('#connect-google').hidden=!auth.google_enabled;}
+$('#home-room-list').onclick=async e=>{const b=e.target.closest('[data-home-room]');if(!b)return;if(homeDemo){openSample(b.dataset.homeRoom);return;}try{await chooseRoom(b.dataset.homeRoom);$('#home-screen').hidden=true;$('#app-frame').hidden=false;render(true);}catch(err){toast(err.message);}};
+$('#home-filters').onclick=e=>{const b=e.target.closest('[data-filter]');if(b){homeFilter=b.dataset.filter;renderHome();}};
+$('#home-help-card').onclick=()=>openSample('mom');$('#sample-back').onclick=()=>{$('#sample-room').hidden=true;$('#home-screen').hidden=false;};
+$('#home-connect').onclick=$('#sample-connect').onclick=openAccountEntry;
+$('#entry-back').onclick=()=>showHome(!state.ready);
+$('#home-new').onclick=async()=>{if(homeDemo){openAccountEntry();return;}try{const r=await api('/api/rooms','POST');state.rooms=await api('/api/rooms');await chooseRoom(r.id);$('#home-screen').hidden=true;$('#app-frame').hidden=false;render(true);}catch(e){toast(e.message);}};
+$('#nav-chats').onclick=()=>{homeView='chats';renderHome();};$('#nav-help').onclick=()=>{homeView='help';renderHome();};
+$('#home-settings').onclick=$('#nav-settings').onclick=()=>{if(homeDemo){openAccountEntry();return;}profileUI();showDialog('#settings');};
 const authMessages={success:'Google 계정으로 연결했어요. 대화를 이어가세요.',expired:'로그인 시간이 지났어요. 다시 시작해 주세요.',cancelled:'Google 로그인을 취소했어요.',failed:'Google 로그인에 실패했어요. 다시 시도해 주세요.',unavailable:'Google 로그인을 준비하고 있어요.',invite:'처음 이용하실 때는 접속 코드로 시작한 뒤 설정에서 Google 계정을 연결해 주세요.',conflict:'이미 다른 대화에 연결된 계정이에요. 기존 대화를 열려면 로그아웃한 뒤 Google로 로그인해 주세요.'};
 if(location.hash.startsWith('#auth=')){
   const result=location.hash.slice(6);history.replaceState(null,'',location.pathname+location.search);
@@ -235,4 +273,4 @@ if(location.hash.startsWith('#auth=')){
   if(authMessages[result])toast(authMessages[result]);
 }
 buttons();
-boot();
+if(new URLSearchParams(location.search).get('preview')==='home')showHome(true);else boot();

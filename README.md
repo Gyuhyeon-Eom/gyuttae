@@ -165,3 +165,11 @@ npm run test:auth  # Node 24+, 실제 Google 접속이나 AI 비용 없음
 인증 테스트는 계정 연결·복구·권한 충돌·콜백 재사용·로그아웃과 서명 토큰 검증을 확인합니다.
 실제 Google 동의 화면과 iOS/Android 설치 앱에서의 로그인은 OAuth 자격 증명 등록 후 확인해야 합니다.
 공식 참고: [Google OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect).
+
+## 사용 중인 홈 화면 미리보기
+
+`https://app.tridatum.co/?preview=home`에서 여러 톡방이 쌓인 상태를 볼 수 있습니다.
+가족방 3개와 개인방 2개, 도움 요청, 읽지 않은 메시지, 해결 상태는 명시적으로 표시한 예시 데이터입니다.
+필터·톡방 열기·홈으로 돌아가기를 확인할 수 있으며 실제 DB에 예시 메시지를 저장하거나 AI를 호출하지 않습니다.
+일반 주소에서 로그인된 사용자는 자신의 실제 개인 대화 목록을 봅니다. 로그인 전에는 예시 홈에서 접속 화면으로 이동할 수 있습니다.
+가족방 공유·읽음·도움 요청의 서버 기능은 개발 계획에 따른 후속 구현입니다.
