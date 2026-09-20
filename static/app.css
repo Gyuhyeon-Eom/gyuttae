@@ -55,3 +55,12 @@
 @media (prefers-reduced-motion:reduce) { .pending-dots i { animation:none; } }
 
 #access-input { width:100%; border:1px solid var(--line); border-radius:14px; padding:14px; font-size:18px; background:var(--surface); margin-bottom:12px; color:var(--ink); }
+
+/* Account actions share the calm, warm surface of the settings sheet. */
+.google-button{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:52px;border:1px solid #d9d7cf;border-radius:16px;background:#fff;color:#353d34;font:inherit;font-weight:600;cursor:pointer;padding:12px 16px}
+.google-button span{font-family:Arial,sans-serif;font-weight:700;font-size:22px}
+.google-button:disabled{opacity:.5;cursor:default}
+.google-button[hidden]{display:none}
+.auth-divider{font-size:13px;color:#73786d;margin:24px 0 12px}
+.account-email{padding:14px 16px;border-radius:14px;background:#f1f3ed;color:#41523c;overflow-wrap:anywhere}
+.account-help{display:inline-block;color:#4e6545;font-size:14px;padding:8px 0}

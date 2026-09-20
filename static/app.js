@@ -1,7 +1,7 @@
 'use strict';
 const $ = s => document.querySelector(s);
 const modes = {easy:'쉽게 듣기',guided:'한 단계씩',expert:'자세히 보기'};
-const state = {profile:{name:'나',mode:'easy'}, rooms:[], room:null, turns:[], image:null, sending:false, polling:null, loading:0, ready:false, outbox:null};
+const state = {account:{},profile:{name:'나',mode:'easy'}, rooms:[], room:null, turns:[], image:null, sending:false, polling:null, loading:0, ready:false, outbox:null};
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = s => esc(s).replace(/(\d{1,2}시간 \d{1,2}분|\d{1,2}시 \d{1,2}분|\d{1,2}:\d{2}|\d{1,2}시간|\d{1,2}시|\d{1,3}분)/g,'<b>$1</b>');
 const symbol = '<svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg>';
@@ -27,7 +27,7 @@ function network(message='') { $('#connection').hidden=!message; $('#connection'
 function buttons() {
   const pending=state.turns.some(t=>t.status==='pending');
   $('#send').disabled=!state.ready||state.sending||pending||(!$('#message').value.trim()&&!state.image);
-  $('#attach').disabled=state.sending;
+  $('#attach').disabled=!state.ready||state.sending;
 }
 function composerResize() { const t=$('#message');t.style.height='auto';t.style.height=Math.min(t.scrollHeight,110)+'px';buttons(); }
 $('#message').addEventListener('input',composerResize);
@@ -98,7 +98,7 @@ async function chooseRoom(id) {
 }
 async function boot() {
   try {
-    const session=await api('/api/session','POST');state.profile=session.profile;profileUI();if(session.access_code){$('#access-hint').textContent='휴대폰에서 처음 열 때 입력할 접속 코드: '+session.access_code;$('#access-hint').hidden=false;}
+    const session=await api('/api/session','POST');state.account=session.account||{};state.profile=session.profile;profileUI();if(session.access_code){$('#access-hint').textContent='휴대폰에서 처음 열 때 입력할 접속 코드: '+session.access_code;$('#access-hint').hidden=false;}
     state.rooms=await api('/api/rooms');
     const room=state.rooms.find(r=>r.id===recall('room'))||state.rooms[0];
     await chooseRoom(room.id);state.ready=true;buttons();
@@ -110,7 +110,11 @@ async function boot() {
     }
   }catch(e){
     if(e.status===401){
-      $('#chat').innerHTML='<div class="welcome"><div class="welcome-symbol">'+symbol.replace('class="icon"','class="welcome-symbol"')+'</div><h2>내 곁에에 연결하기</h2><p>전달받은 테스트용 접속 코드를 입력해 주세요.<br>한 번 연결하면 이 기기에서 계속 쓸 수 있어요.</p><form id="unlock-form"><input id="access-input" aria-label="접속 코드" inputmode="numeric" autocomplete="off" placeholder="12자리 접속 코드" maxlength="12" required><button class="chip primary block" type="submit">곁에 시작하기</button></form></div>';
+      state.ready=false;buttons();
+      const auth=await api('/api/auth/status').catch(()=>({google_enabled:false}));
+      $('#chat').innerHTML='<div class="welcome"><div class="welcome-symbol">'+symbol.replace('class="icon"','class="welcome-symbol"')+'</div><h2>내 곁에에 연결하기</h2><p>계정을 연결하셨다면 Google로 로그인해 주세요.<br>처음 오셨다면 초대받은 접속 코드로 시작해요.</p><form id="unlock-form"><input id="access-input" aria-label="접속 코드" inputmode="numeric" autocomplete="off" placeholder="12자리 접속 코드" maxlength="12" required><button class="chip primary block" type="submit">곁에 시작하기</button></form><div id="google-entry"></div></div>';
+      if(!auth.google_enabled)$('#chat .welcome > p').textContent='전달받은 테스트용 접속 코드로 시작해 주세요. 한 번 연결하면 이 기기에서 계속 쓸 수 있어요.';
+      if(auth.google_enabled){$('#google-entry').innerHTML='<div class="auth-divider">이미 계정을 연결하셨나요?</div><button class="google-button" id="login-google" type="button"><span aria-hidden="true">G</span> Google로 로그인</button><p class="device-hint">같은 Google 계정으로 로그인하면 이전 대화를 되찾아요.</p>';$('#login-google').onclick=()=>startGoogle($('#login-google'));}
       $('#unlock-form').onsubmit=async ev=>{ev.preventDefault();try{await api('/api/session','POST',{access_code:$('#access-input').value});await boot();}catch(error){toast(error.message);}};
       return;
     }
@@ -176,6 +180,34 @@ $('#photo').onchange=async e=>{
   }catch(err){toast(err.message?.includes('사진')?err.message:'사진을 읽지 못했어요. JPG·PNG 사진이나 화면 캡처로 다시 시도해 주세요.');}
   finally{URL.revokeObjectURL(url);}
 };
+async function startGoogle(button){
+  button.disabled=true;
+  try{const r=await api('/api/auth/google/start','POST',{});location.assign(r.url);}
+  catch(e){toast(e.message);button.disabled=false;}
+}
+$('#open-account').onclick=async()=>{
+  try{
+    const a=await api('/api/auth/status');state.account=a;
+    $('#account-description').textContent=a.linked?'대화를 Google 계정에 안전하게 연결했어요.':'소중한 대화를 다시 찾을 수 있게 준비해요.';
+    $('#account-email').textContent=a.email||'';$('#account-email').hidden=!a.linked;
+    $('#link-google').hidden=a.linked;$('#link-google').disabled=!a.google_enabled;
+    $('#account-note').textContent=a.linked?'다른 기기에서도 같은 Google 계정으로 로그인하면 지금 대화를 이어볼 수 있어요.':a.google_enabled?'지금의 대화를 Google 계정에 연결해요. 휴대폰을 바꾸거나 앱을 다시 설치해도 같은 계정으로 이어볼 수 있어요.':'Google 로그인 연결을 준비 중이에요. 지금은 설정의 다른 기기에서 이어보기를 이용해 주세요.';
+    $('#logout').hidden=!state.ready;$('#logout-all').hidden=!a.linked;showDialog('#account-panel');
+  }catch(e){toast(e.message);}
+};
+$('#link-google').onclick=()=>startGoogle($('#link-google'));
+let logoutAll=false;
+function confirmLogout(all){
+  logoutAll=all;
+  $('#logout-message').textContent=!state.account.linked?'아직 Google 계정을 연결하지 않았어요. 다른 연결 기기가 없다면 로그아웃 후 지금 대화를 다시 찾을 수 없어요. 먼저 계정을 연결하는 것을 권해요.':all?'모든 기기의 연결을 해제해요. 다시 이용하려면 Google 계정으로 로그인해 주세요.':'대화는 계정에 남아 있어요. 같은 Google 계정으로 다시 로그인하면 이어볼 수 있어요.';
+  showDialog('#logout-confirm');
+}
+$('#logout').onclick=()=>confirmLogout(false);$('#logout-all').onclick=()=>confirmLogout(true);
+$('#confirm-logout').onclick=async()=>{
+  const button=$('#confirm-logout');button.disabled=true;
+  try{await api('/api/auth/logout','POST',{all:logoutAll});clearTimeout(state.polling);sessionStorage.clear();if('speechSynthesis' in window)speechSynthesis.cancel();location.replace('/');}
+  catch(e){toast(e.message);button.disabled=false;}
+};
 $('#devices').onclick=()=>showDialog('#device-panel');
 $('#make-code').onclick=async()=>{try{const r=await api('/api/pairing','POST');$('#pair-code').textContent=r.code;$('#pair-code').hidden=false;}catch(e){toast(e.message);}};
 $('#claim-form').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('button');b.disabled=true;try{await api('/api/pairing/claim','POST',{code:$('#pair-input').value});clearTimeout(state.polling);state.turns=[];state.image=null;state.outbox=null;remember('room',null);remember('outbox',null);$('#message').value='';$('#pair-input').value='';$('#pair-code').hidden=true;showAttachment();$('#device-panel').close();await boot();toast('대화를 연결했어요.');}catch(e){toast(e.message);}finally{b.disabled=false;}};
@@ -190,5 +222,11 @@ window.addEventListener('offline',()=>network('인터넷 연결이 끊겼어요.
 window.addEventListener('online',()=>{network();if(state.ready)poll();else boot();});
 window.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.ready)poll();});
 if('serviceWorker' in navigator&&window.isSecureContext)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+const authMessages={success:'Google 계정으로 연결했어요. 대화를 이어가세요.',expired:'로그인 시간이 지났어요. 다시 시작해 주세요.',cancelled:'Google 로그인을 취소했어요.',failed:'Google 로그인에 실패했어요. 다시 시도해 주세요.',unavailable:'Google 로그인을 준비하고 있어요.',invite:'처음 이용하실 때는 접속 코드로 시작한 뒤 설정에서 Google 계정을 연결해 주세요.',conflict:'이미 다른 대화에 연결된 계정이에요. 기존 대화를 열려면 로그아웃한 뒤 Google로 로그인해 주세요.'};
+if(location.hash.startsWith('#auth=')){
+  const result=location.hash.slice(6);history.replaceState(null,'',location.pathname+location.search);
+  if(result==='success'){remember('room',null);remember('outbox',null);}
+  if(authMessages[result])toast(authMessages[result]);
+}
 buttons();
 boot();

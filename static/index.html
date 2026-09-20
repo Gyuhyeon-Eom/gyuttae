@@ -55,9 +55,26 @@
     <label class="option"><input type="radio" name="mode" value="guided"><span class="option-body"><b>한 단계씩 알려주세요</b><small>하나 끝나면 다음으로</small></span></label>
     <label class="option"><input type="radio" name="mode" value="expert"><span class="option-body"><b>자세히 알려주세요</b><small>핵심 정보와 다음에 할 일까지</small></span></label>
   </div>
+  <button class="setting-row" id="open-account">계정과 대화 복구 <span>›</span></button>
   <button class="setting-row" id="devices">다른 기기에서 이어보기 <span>›</span></button>
   <button class="setting-row" id="install">홈 화면에 곁에 추가하기 <span>›</span></button>
   <p class="privacy-note">대화는 곁에 서버에 저장돼요. 보낸 글과 사진, 최근 대화 일부를 Claude에 전달해 답변을 받아요. 최근 8개 문답을 참고하며, 이전 사진의 원본은 다시 전달하지 않아요.</p>
+</dialog>
+<dialog class="panel" id="account-panel">
+  <div class="panel-head"><h2>다시 와도, 곁에</h2><button class="icon-btn" data-close aria-label="계정 설정 닫기">×</button></div>
+  <p class="sheet-desc" id="account-description"></p>
+  <p class="account-email" id="account-email" hidden></p>
+  <button class="google-button" id="link-google" type="button"><span aria-hidden="true">G</span> Google 계정 연결하기</button>
+  <p class="device-hint" id="account-note">지금의 대화를 Google 계정에 연결해요. 휴대폰을 바꾸거나 앱을 다시 설치해도 같은 계정으로 로그인하면 이어볼 수 있어요.</p>
+  <button class="setting-row" id="logout">이 기기에서 로그아웃 <span>›</span></button>
+  <button class="setting-row" id="logout-all" hidden>모든 기기에서 로그아웃 <span>›</span></button>
+  <p class="device-hint">Google 계정 자체에 접속할 수 없다면 Google의 계정 복구를 먼저 진행해 주세요.</p>
+  <a class="account-help" href="https://accounts.google.com/signin/recovery" target="_blank" rel="noopener noreferrer">Google 계정 복구 안내 ↗</a>
+</dialog>
+<dialog class="panel" id="logout-confirm">
+  <div class="panel-head"><h2>로그아웃할까요?</h2><button class="icon-btn" data-close aria-label="닫기">×</button></div>
+  <p class="sheet-desc" id="logout-message"></p>
+  <div class="chip-row"><button class="chip ghost" data-close>취소</button><button class="chip primary" id="confirm-logout">로그아웃</button></div>
 </dialog>
 <dialog class="panel" id="rooms-panel">
   <div class="panel-head"><h2>나눈 이야기</h2><button class="icon-btn" data-close aria-label="대화 목록 닫기">×</button></div>

@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import AI from './ai-config.json';
+import {initAuth, authRoute, account} from './auth.js';
 
 const json=(v,status=200,headers={})=>Response.json(v,{status,headers:{'Cache-Control':'no-store',...headers}});
 const hash=async s=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))),v=>v.toString(16).padStart(2,'0')).join('');
@@ -69,6 +70,7 @@ export class ChatStore extends DurableObject {
       CREATE INDEX IF NOT EXISTS room_turns ON turns(room,created);
       CREATE INDEX IF NOT EXISTS daily_attempts ON attempts(created);
     `);
+    initAuth(this);
   }
   rows(q,...p){return this.sql.exec(q,...p).toArray();}
   one(q,...p){return this.rows(q,...p)[0];}
@@ -99,6 +101,7 @@ export class ChatStore extends DurableObject {
     let uid=this.one('SELECT uid FROM sessions WHERE token=? AND expires>?',token,now())?.uid;
     const b=method==='GET'?{}:await body(request);
     const ip=request.headers.get('CF-Connecting-IP')||'local';
+    if(path.startsWith('/api/auth/')){const response=await authRoute(this,request,{uid,token,b,ip});if(response)return response;}
     if(path==='/api/session'&&method==='POST'){
       let headers={};
       if(!uid){
@@ -110,7 +113,7 @@ export class ChatStore extends DurableObject {
         this.run('INSERT INTO rooms VALUES(?,?,?,?)',random(),uid,'첫 대화',now());
         headers={'Set-Cookie':await this.sessionHeader(uid,request)};
       }
-      return json({profile:this.one('SELECT name,mode FROM users WHERE id=?',uid),ai_ready:!!this.env.ANTHROPIC_API_KEY,access_code:null},200,headers);
+      return json({account:account(this,uid),profile:this.one('SELECT name,mode FROM users WHERE id=?',uid),ai_ready:!!this.env.ANTHROPIC_API_KEY,access_code:null},200,headers);
     }
     need(uid,401,'기기 연결이 만료됐어요. 새로고침해 주세요.');
     if(path==='/api/profile'&&method==='PUT'){

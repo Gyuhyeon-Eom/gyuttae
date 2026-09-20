@@ -1,2 +1,6 @@
 ANTHROPIC_API_KEY="replace_with_your_key"
 ACCESS_CODE="replace_with_your_private_access_code"
+
+# Google Cloud: Web application OAuth client
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""

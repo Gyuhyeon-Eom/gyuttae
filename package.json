@@ -1,1 +1,17 @@
-{"name":"gyeote-app","private":true,"type":"module","scripts":{"dev":"wrangler dev --port 8901","deploy":"wrangler deploy","test":"node --test tests/worker.test.mjs"},"devDependencies":{"wrangler":"4.135.0"}}
+{
+  "name": "gyeote-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8901",
+    "deploy": "wrangler deploy",
+    "test": "node --test tests/worker.test.mjs",
+    "test:auth": "node --test tests/auth.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.135.0"
+  },
+  "dependencies": {
+    "jose": "^6.2.12"
+  }
+}

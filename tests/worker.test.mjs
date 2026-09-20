@@ -26,3 +26,12 @@ test('Install assets exist and advertise standalone mode',async()=>{
  for(const icon of manifest.icons){const r=await fetch(base+icon.src);assert.equal(r.status,200);assert.match(r.headers.get('content-type'),/image\/png/);}
  const sw=await(await fetch(base+'/sw.js')).text();assert.match(sw,/pathname.startsWith\('\/api\/'\)/);
 });
+test('Account status is private and logout invalidates the server session',async()=>{
+ const c=client();const publicStatus=await c('/api/auth/status');assert.equal(publicStatus.status,200);assert.equal(publicStatus.headers.get('cache-control'),'no-store');assert.equal((await publicStatus.json()).linked,false);
+ await c('/api/session','POST',{access_code:code});
+ assert.equal((await c('/api/auth/logout','POST',{}, {Origin:'https://untrusted.example'})).status,403);
+ assert.equal((await c('/api/rooms')).status,200);
+ assert.equal((await c('/api/auth/logout','POST',{all:true})).status,409);
+ assert.equal((await c('/api/auth/logout','POST',{})).status,200);
+ assert.equal((await c('/api/rooms')).status,401);
+});
