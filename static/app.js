@@ -235,6 +235,30 @@ const sampleRooms=[
  {id:'outing',kind:'family',title:'주말 나들이',members:'지은 · 엄마 · 아빠 · 민준',initials:['지','민'],time:'어제',preview:'민준: 점심은 도착해서 같이 정하자!',unread:0,tag:'',messages:[['지은','이번 주말엔 다 같이 바람 쐬러 가자.'],['민준','점심은 도착해서 같이 정하자!'],['엄마','좋아. 많이 걷지 않는 곳이면 좋겠어.']]},
  {id:'phone',kind:'personal',title:'휴대폰, 천천히 배우기',members:'나만 보는 개인 대화',initials:['나'],time:'월요일',preview:'글씨 크기 바꾸기, 차근차근 마쳤어요.',unread:0,tag:'해결했어요',messages:[['나','휴대폰 글씨가 너무 작아.'],['곁에','설정에서 글씨 크기를 조절할 수 있어요. 사용하시는 휴대폰 종류부터 알려주세요.'],['나','알려준 대로 하니까 잘 보여! 고마워.'],['곁에','이제 더 편하게 읽을 수 있겠어요. 다른 궁금한 것도 편하게 물어보세요.']]}
 ];
+const sampleAgenda={
+ events:[{id:'trip',title:'가족 나들이 · 서울역에서 만나기',when:'이번 주 토요일 · 오전 11:00',place:'서울역 3번 출구',room:'family',label:'우리 가족',status:'확인된 약속'},
+ {id:'lunch',title:'나들이 점심 장소 정하기',when:'이번 주 토요일 · 도착 후',place:'시간과 장소는 함께 정할 예정이에요.',room:'outing',label:'주말 나들이',status:'아직 상의 중'}],
+ tasks:[{id:'tickets',title:'기차표 4장 챙기기',owner:'지은',when:'토요일 출발 전',room:'family',label:'우리 가족',done:true},
+ {id:'water',title:'물과 모자 챙기기',owner:'엄마',when:'토요일 출발 전',room:'family',label:'우리 가족',done:false},
+ {id:'tv',title:'엄마 TV 연결 함께 확인하기',owner:'지은',when:'엄마가 도움을 기다려요',room:'mom',label:'엄마와 함께',done:false}]
+};
+let agendaTab='events';
+function renderAgenda(){
+ const pending=sampleAgenda.tasks.filter(t=>!t.done).length;
+ $('#agenda-summary').innerHTML=homeDemo?`<button class="agenda-next" id="agenda-next"><span class="agenda-date"><small>이번 주</small><b>토</b></span><span class="agenda-next-copy"><small>오전 11:00 · 우리 가족</small><strong>서울역에서 만나요</strong><span>3번 출구 · 가족 나들이</span></span><span class="agenda-arrow">›</span></button><button class="agenda-task-summary" id="agenda-open-tasks"><span><i></i>챙길 일 <b>${pending}개</b> 남았어요</span><span>확인하기 ›</span></button>`:'<p class="agenda-empty">아직 모아둔 약속이 없어요.<br><span>약속과 할 일을 모으는 기능을 준비하고 있어요.</span></p>';
+ if(homeDemo){$('#agenda-next').onclick=()=>openAgenda('events');$('#agenda-open-tasks').onclick=()=>openAgenda('tasks');}
+ if($('#agenda-panel').open)renderAgendaItems();
+}
+function openAgenda(tab){agendaTab=tab;renderAgendaItems();showDialog('#agenda-panel');}
+function renderAgendaItems(){
+ const events=agendaTab==='events';
+ $('#agenda-events').setAttribute('aria-pressed',String(events));$('#agenda-todos').setAttribute('aria-pressed',String(!events));
+ $('#agenda-demo-note').hidden=!homeDemo;
+ $('#agenda-description').textContent=homeDemo?'어느 방에서 나온 내용인지 함께 확인해요.':'약속과 할 일을 모으는 기능을 준비하고 있어요.';
+ $('#agenda-items').innerHTML=!homeDemo?'<p class="agenda-empty">아직 모아둔 항목이 없어요.</p>':events?sampleAgenda.events.map(e=>`<article class="agenda-item"><div class="agenda-item-top"><span class="agenda-status ${e.id==='lunch'?'tentative':''}">${esc(e.status)}</span><small>${esc(e.label)}</small></div><h3>${esc(e.title)}</h3><p class="agenda-when">${esc(e.when)}</p><p>${esc(e.place)}</p><button class="agenda-source" data-agenda-room="${e.room}">이야기 나눈 방 보기 <span>↗</span></button></article>`).join(''):sampleAgenda.tasks.map(t=>`<article class="agenda-task ${t.done?'is-done':''}"><button class="agenda-check" data-agenda-task="${t.id}" aria-label="${esc(t.title)} 완료" aria-pressed="${t.done}">${t.done?'✓':''}</button><div><h3>${esc(t.title)}</h3><p>${esc(t.owner)} · ${esc(t.when)}</p><button class="agenda-source" data-agenda-room="${t.room}">${esc(t.label)} ↗</button></div><small>${t.done?'완료':'할 일'}</small></article>`).join('');
+}
+$('#agenda-all').onclick=()=>openAgenda('events');$('#agenda-events').onclick=()=>{agendaTab='events';renderAgendaItems();};$('#agenda-todos').onclick=()=>{agendaTab='tasks';renderAgendaItems();};
+$('#agenda-items').onclick=e=>{const source=e.target.closest('[data-agenda-room]');if(source){$('#agenda-panel').close();openSample(source.dataset.agendaRoom);return;}const b=e.target.closest('[data-agenda-task]');if(b&&homeDemo){const t=sampleAgenda.tasks.find(t=>t.id===b.dataset.agendaTask);t.done=!t.done;renderAgenda();}};
 let homeDemo=false,homeFilter='all',homeView='chats';
 function showHome(demo){
  homeDemo=demo;homeFilter='all';homeView='chats';clearTimeout(state.polling);++state.loading;
@@ -244,6 +268,7 @@ function showHome(demo){
  $('#home-settings').textContent=demo?'지':state.profile.name.slice(0,1);renderHome();
 }
 function renderHome(){
+ renderAgenda();
  const all=homeDemo?sampleRooms:state.rooms.map(r=>({...r,kind:'personal',initials:['나'],members:'나만 보는 개인 대화',preview:'이전 이야기를 이어가세요.',time:new Date(r.created*1000).toLocaleDateString('ko-KR',{month:'short',day:'numeric'}),unread:0}));
  const rooms=all.filter(r=>homeView==='help'?r.id==='mom':homeFilter==='all'||r.kind===homeFilter);
  $('#home-section-title').firstChild.textContent=homeView==='help'?'도움 요청 ':'나눈 이야기 ';

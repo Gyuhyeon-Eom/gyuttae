@@ -35,6 +35,10 @@
     <header class="home-header"><div class="home-wordmark"><svg class="icon"><use href="#i-spark"/></svg>곁에</div><button class="home-profile" id="home-settings" aria-label="내 설정">나</button></header>
     <div class="home-demo-note" id="home-demo-note" hidden><span>사용 중인 모습 · 예시</span><button id="home-connect">내 계정으로 시작하기 ↗</button></div>
     <div class="home-greeting"><p id="home-greeting">오늘도, 함께라서 괜찮아요.</p><h1>함께 나누는 일상</h1></div>
+    <section class="home-agenda" aria-label="다가오는 약속과 챙길 일">
+      <div class="agenda-heading"><h2>잊지 않도록, 곁에</h2><button id="agenda-all">모아보기 <span aria-hidden="true">›</span></button></div>
+      <div id="agenda-summary"></div>
+    </section>
     <button class="home-help-card" id="home-help-card" hidden><span class="help-symbol"><svg class="icon"><use href="#i-heart"/></svg></span><span><small>가족의 도움 요청</small><strong>엄마가 잠깐, 도움을 기다려요</strong><span>TV 연결하기 · 마지막 단계에서 막혔어요</span></span><span class="home-chevron">›</span></button>
     <div class="home-section-title"><h2 id="home-section-title">나눈 이야기 <span id="home-room-count"></span></h2><button id="home-new" aria-label="새 대화 시작">＋ 새 대화</button></div>
     <div class="home-filters" id="home-filters" role="group" aria-label="대화 필터"><button class="selected" data-filter="all" aria-pressed="true">전체</button><button data-filter="family" aria-pressed="false">함께하는 방</button><button data-filter="personal" aria-pressed="false">나의 방</button></div>
@@ -83,6 +87,13 @@
     <input type="file" id="photo" accept="image/*" hidden>
   </form>
 </div>
+<dialog class="panel agenda-panel" id="agenda-panel">
+  <div class="panel-head"><h2>약속과 챙길 일</h2><button class="icon-btn" data-close aria-label="모아보기 닫기">×</button></div>
+  <p class="sheet-desc" id="agenda-description">여러 방에서 나눈 약속을 한곳에 모았어요.</p>
+  <div class="agenda-tabs" role="group" aria-label="모아보기 종류"><button id="agenda-events" aria-pressed="true">약속</button><button id="agenda-todos" aria-pressed="false">챙길 일</button></div>
+  <div id="agenda-items"></div>
+  <p class="device-hint" id="agenda-demo-note" hidden>사용 모습을 보여주는 예시예요. 완료 표시는 이 미리보기에서만 바뀌어요.</p>
+</dialog>
 <dialog class="panel" id="settings">
   <div class="panel-head"><h2>나에게 맞게</h2><button class="icon-btn" data-close aria-label="설정 닫기">×</button></div>
   <p class="sheet-desc">새로 받는 답변에 적용돼요.</p>
