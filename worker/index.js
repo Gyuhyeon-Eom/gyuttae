@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import AI from './ai-config.json';
+import {initReminders,reminderRoute,deliverReminders} from './reminders.js';
 import {initCollaboration,collaborationRoute,CollaborationError,access,listRooms,notify,roomMembers,proposeFromText} from './collaboration.js';
 import {initAuth, authRoute, account} from './auth.js';
 
@@ -41,6 +42,7 @@ function imageBytes(b){
 function toBase64(bytes){let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);}
 
 export default {
+  async scheduled(event,env){const response=await env.CHAT.getByName('personal-pilot-v1').fetch(new Request('https://internal/reminders',{method:'POST'}));if(!response.ok)throw new Error('Reminder delivery failed');},
   async fetch(request,env){
     let response;
     const url=new URL(request.url);
@@ -71,7 +73,7 @@ export class ChatStore extends DurableObject {
       CREATE INDEX IF NOT EXISTS room_turns ON turns(room,created);
       CREATE INDEX IF NOT EXISTS daily_attempts ON attempts(created);
     `);
-    initAuth(this);initCollaboration(this);
+    initAuth(this);initCollaboration(this);initReminders(this);
   }
   rows(q,...p){return this.sql.exec(q,...p).toArray();}
   one(q,...p){return this.rows(q,...p)[0];}
@@ -93,7 +95,7 @@ export class ChatStore extends DurableObject {
   }
   async schedule(){if(await this.ctx.storage.getAlarm()===null)await this.ctx.storage.setAlarm(Date.now()+100);}
   async fetch(request){
-    try{return await this.route(request);}catch(e){return json({detail:(e instanceof Problem||e instanceof CollaborationError)?e.message:'잠시 처리하지 못했어요. 다시 시도해 주세요.'},(e instanceof Problem||e instanceof CollaborationError)?e.status:500);}
+    try{if(new URL(request.url).pathname==='/reminders'&&request.method==='POST')return json({delivered:deliverReminders(this)});return await this.route(request);}catch(e){return json({detail:(e instanceof Problem||e instanceof CollaborationError)?e.message:'잠시 처리하지 못했어요. 다시 시도해 주세요.'},(e instanceof Problem||e instanceof CollaborationError)?e.status:500);}
   }
   async route(request){
     const url=new URL(request.url),path=url.pathname,method=request.method;
@@ -117,6 +119,7 @@ export class ChatStore extends DurableObject {
       return json({uid,account:account(this,uid),profile:this.one('SELECT name,mode FROM users WHERE id=?',uid),ai_ready:!!this.env.ANTHROPIC_API_KEY,access_code:null},200,headers);
     }
     need(uid,401,'기기 연결이 만료됐어요. 새로고침해 주세요.');
+    const reminder=reminderRoute(this,request,uid,b);if(reminder)return reminder;
     const collaboration=await collaborationRoute(this,request,{uid,b,token});if(collaboration)return collaboration;
     if(path==='/api/profile'&&method==='PUT'){
       need(short(b.name,20)&&b.name.trim()&&MODES.includes(b.mode),422,'안내 방식을 확인해 주세요.');

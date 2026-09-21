@@ -167,7 +167,7 @@ $('#modes').addEventListener('change',async e=>{
   try{state.profile=await api('/api/profile','PUT',{...state.profile,mode:e.target.value});profileUI();render();$('#settings').close();toast('내 화면에 적용했어요. 다음 AI 답변도 이 방식으로 안내해요.');}
   catch(err){profileUI();toast(err.message);}
 });
-$('#open-rooms').onclick=async()=>{try{state.rooms=await api('/api/rooms');showHome(false);}catch(e){toast(e.message);}};
+$('#open-rooms').onclick=()=>{showHome(false);refreshLive().catch(e=>toast('홈으로 돌아왔어요. 최신 목록은 연결 후 갱신돼요.'));};
 $('#rooms-list').onclick=async e=>{const b=e.target.closest('[data-room]');if(!b)return;try{await chooseRoom(b.dataset.room);$('#rooms-panel').close();}catch(e){toast(e.message);}};
 $('#new-room').onclick=async()=>{try{const r=await api('/api/rooms','POST');state.rooms=await api('/api/rooms');await chooseRoom(r.id);$('#rooms-panel').close();}catch(e){toast(e.message);}};
 function showAttachment(){const p=$('#attachment-preview');p.hidden=!state.image;if(state.image)p.querySelector('img').src=`data:${state.image.type};base64,${state.image.data}`;else p.querySelector('img').removeAttribute('src');buttons();}

@@ -8,7 +8,8 @@
     "test": "node --test tests/worker.test.mjs",
     "test:auth": "node --test tests/auth.test.mjs",
     "test:collaboration": "node --test tests/collaboration.test.mjs",
-    "test:family": "node --test tests/family-live.test.mjs"
+    "test:family": "node --test tests/family-live.test.mjs",
+    "test:reminders": "node --test tests/reminders.test.mjs"
   },
   "devDependencies": {
     "wrangler": "4.135.0"
