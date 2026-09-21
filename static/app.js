@@ -6,6 +6,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const fmt = s => esc(s).replace(/(\d{1,2}시간 \d{1,2}분|\d{1,2}시 \d{1,2}분|\d{1,2}:\d{2}|\d{1,2}시간|\d{1,2}시|\d{1,3}분)/g,'<b>$1</b>');
 const symbol = '<svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg>';
 const icon = name => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+const messageDay = t => {const date=new Date(t*1000);return date.toDateString()===new Date().toDateString()?'오늘':date.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'});};
 const stamp = t => new Date(t*1000).toLocaleTimeString('ko-KR',{hour:'numeric',minute:'2-digit'});
 const makeId = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), v=>v.toString(16).padStart(2,'0')).join('');
 let toastTimer;
@@ -64,16 +65,18 @@ function answer(t) {
     ${a.caution?`<div class="alert-badge">${icon('clock')}<span>${fmt(a.caution)}</span></div>`:''}
     ${a.facts.length?(t.mode==='expert'?`<div class="task-card">${details(a,t.mode)}</div>`:`<details class="task-card"><summary>자세한 정보 보기</summary>${details(a,t.mode)}</details>`):''}
     ${steps(t)}
-    ${a.question?`<div class="follow-up"><b>조금만 더 알려주세요</b>${fmt(a.question)}</div>`:''}
+    ${a.question?`<div class="follow-up">${fmt(a.question)}</div>`:''}
     ${a.suggestions.length&&t.mode==='expert'?`<div class="suggest-list"><div class="suggest-cap">이어서 물어보세요</div>${a.suggestions.map((s,i)=>`<button class="suggest-action" data-suggestion="${t.id}" data-index="${i}"><span>${esc(s)}</span><span class="chev">›</span></button>`).join('')}</div>`:''}`;
 }
 function render(forceBottom=false) {
+  const openMenus=Array.from(document.querySelectorAll('[data-message-menu][open]'),el=>el.dataset.messageMenu);
   const chat=$('#chat'), bottom=chat.scrollHeight-chat.scrollTop-chat.clientHeight<90, scroll=chat.scrollTop;
   if(!state.turns.length) {
     chat.innerHTML=currentRoom()?.kind==='family'?`<div class="welcome"><div class="welcome-symbol">${symbol}</div><h2>함께 이야기해요.</h2><p>구성원·초대에서 가족을 초대해 주세요.<br>메시지와 사진을 나누고 약속을 정리할 수 있어요.</p></div>`:`<div class="welcome"><div class="welcome-symbol">${symbol.replace('class="icon"','class="welcome-symbol"')}</div><h2>어려운 일상에,<br>곁에가 함께할게요.</h2><p>궁금한 걸 편하게 적어주세요.<br>받은 문자나 사진도 함께 살펴볼게요.</p><div class="starters"><button data-starter="받은 문자가 무슨 뜻인지 알고 싶어요.">받은 문자, 같이 읽어주세요 <span>›</span></button><button data-starter="휴대폰 글씨를 크게 바꾸고 싶어요.">휴대폰 쓰는 게 어려워요 <span>›</span></button></div></div>`;
   } else {
-    chat.innerHTML=state.turns.map(t=>`<section class="turn" data-turn="${t.id}"><div class="msg ${t.mine===false?'family-message':'me'}"><div class="msg-body"><div class="msg-meta"><b>${esc(t.author||state.profile.name)}</b>${stamp(t.created)}</div><div class="bubble">${t.has_image?`<img class="user-photo" src="/api/turns/${t.id}/image" alt="대화에 첨부된 사진" loading="lazy">`:''}${t.text?`<div class="user-text">${esc(t.text)}</div>`:''}</div></div></div><div class="msg ai-answer" ${t.status==='message'?'hidden':''} data-mode="${state.profile.mode}"><div class="avatar ai">${symbol}</div><div class="msg-body wide"><div class="msg-meta"><b>곁에</b>${modes[state.profile.mode]}</div>${answer({...t,mode:state.profile.mode})}</div></div>${messageActions(t)}</section>`).join('');
+    chat.innerHTML=state.turns.map((t,i)=>`${!i||new Date(state.turns[i-1].created*1000).toDateString()!==new Date(t.created*1000).toDateString()?`<div class="day-divider">${messageDay(t.created)}</div>`:''}<section class="turn" data-turn="${t.id}"><div class="msg ${t.mine===false?'family-message':'me'}">${t.mine===false?`<div class="avatar person">${esc((t.author||'가족').slice(0,1))}</div>`:''}<div class="msg-body">${t.mine===false?`<div class="msg-meta"><b>${esc(t.author||'가족')}</b></div>`:''}<div class="bubble">${t.has_image?`<img class="user-photo" src="/api/turns/${t.id}/image" alt="대화에 첨부된 사진" loading="lazy">`:''}${t.text?`<div class="user-text">${esc(t.text)}</div>`:''}</div><time class="message-time">${stamp(t.created)}</time></div></div><div class="msg ai-answer" ${t.status==='message'?'hidden':''} data-mode="${state.profile.mode}"><div class="avatar ai">${symbol}</div><div class="msg-body wide"><div class="msg-meta"><b>곁에</b></div>${answer({...t,mode:state.profile.mode})}</div></div>${messageActions(t)}</section>`).join('');
   }
+  chat.querySelectorAll('[data-message-menu]').forEach(el=>{el.open=openMenus.includes(el.dataset.messageMenu);});
   buttons();
   if(forceBottom||bottom)chat.scrollTop=chat.scrollHeight; else chat.scrollTop=scroll;
 }
@@ -246,8 +249,8 @@ const sampleAgenda={
 let agendaTab='events';
 // Shared markup keeps preview and real accounts visually consistent.
 function homeAgendaCard(event,pending,eventId,taskId){
- const card=event?`<button class="agenda-next" id="${eventId}"><span class="agenda-date"><small>${esc(event.month)}</small><b>${esc(event.day)}</b></span><span class="agenda-next-copy"><span class="agenda-time-line"><strong>${esc(event.time)}</strong><small class="agenda-context">${esc(event.label)}</small></span><span class="agenda-event-title">${esc(event.title)}</span><span class="agenda-location">${esc(event.place||'장소 미정')}</span><span class="agenda-room-label">${esc(event.room)}</span></span><span class="agenda-arrow" aria-hidden="true">›</span></button>`:`<div class="agenda-empty"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><div><strong>다가오는 약속이 없어요</strong><span>모아보기에서 약속을 등록할 수 있어요.</span></div></div>`;
- return card+`<button class="agenda-task-summary" id="${taskId}"><span><span class="task-ring" aria-hidden="true">${pending?'':'✓'}</span>${pending?`챙길 일 <b>${pending}개</b>`:'남은 할 일이 없어요'}</span><span>${pending?'살펴보기':'모아보기'} <span aria-hidden="true">›</span></span></button>`;
+ const card=event?`<button class="agenda-next" id="${eventId}"><span class="agenda-mini-time">${esc(event.month)} ${esc(event.day)}<strong>${esc(event.time)}</strong></span><span class="agenda-next-copy"><strong>${esc(event.title)}</strong><span>${esc(event.place||'장소 미정')} · ${esc(event.room)}</span></span><span class="agenda-arrow" aria-hidden="true">›</span></button>`:'<span class="agenda-empty">예정된 약속 없음</span>';
+ return card+`<button class="agenda-task-summary" id="${taskId}">할 일 <b>${pending}</b><span class="sr-only">개 모아보기</span><span aria-hidden="true">›</span></button>`;
 }
 function homeRoomTime(value){
  const date=new Date(value*1000),now=new Date();
@@ -274,32 +277,34 @@ function renderAgendaItems(){
 }
 $('#agenda-all').onclick=()=>openAgenda('events');$('#agenda-events').onclick=()=>{agendaTab='events';renderAgendaItems();};$('#agenda-todos').onclick=()=>{agendaTab='tasks';renderAgendaItems();};
 $('#agenda-items').onclick=e=>{const source=e.target.closest('[data-agenda-room]');if(source){$('#agenda-panel').close();openSample(source.dataset.agendaRoom);return;}const b=e.target.closest('[data-agenda-task]');if(b&&homeDemo){const t=sampleAgenda.tasks.find(t=>t.id===b.dataset.agendaTask);t.done=!t.done;renderAgenda();}};
-let homeDemo=false,homeFilter='all',homeView='chats';
+let homeDemo=false,homeFilter='all',homeView='chats',homeQuery='';
 function showHome(demo){
  homeDemo=demo;homeFilter='all';homeView='chats';clearTimeout(state.polling);++state.loading;
  $('#entry').hidden=true;$('#app-frame').hidden=true;$('#sample-room').hidden=true;$('#home-screen').hidden=false;
  $('#home-demo-note').hidden=!demo;$('#home-help-card').hidden=!demo;$('#home-help-dot').hidden=!demo;
- $('#home-greeting').textContent=demo?'지은 님, 오늘도 반가워요.':state.profile.name==='나'?'오늘도 반가워요.':`${state.profile.name} 님, 오늘도 반가워요.`;
+
  $('#home-settings').textContent=demo?'지':state.profile.name.slice(0,1);$('#open-notices').hidden=demo;renderHome();if(!demo)startHomePolling();
 }
 function renderHome(){
  renderAgenda();
+ $('#home-title').textContent=homeView==='help'?'도움 요청':'대화';$('#home-search').closest('label').hidden=homeView==='help';$('#home-new').hidden=homeView==='help';
  const all=homeDemo?sampleRooms:state.rooms.map(r=>({...r,kind:r.kind||'personal',initials:r.kind==='family'?r.members.slice(0,4).map(m=>m.name.slice(0,1)):['나'],members:r.kind==='family'?r.members.map(m=>m.name).join(' · '):'나만 보는 개인 대화',preview:r.preview||'새로운 이야기를 시작하세요.',time:homeRoomTime(r.updated||r.created),tag:r.kind==='family'?'':'나만 보는 방',unread:r.unread||0}));
  if(!homeDemo&&homeView==='help'){liveRenderHelp();return;}
- const rooms=all.filter(r=>homeView==='help'?r.id==='mom':homeFilter==='all'||r.kind===homeFilter);
- $('#home-section-title').firstChild.textContent=homeView==='help'?'도움 요청 ':'나눈 이야기 ';
+ const rooms=all.filter(r=>(homeView==='help'?r.id==='mom':homeFilter==='all'||r.kind===homeFilter)&&(homeView==='help'||!homeQuery||`${r.title} ${r.preview}`.normalize('NFC').toLocaleLowerCase().includes(homeQuery)));
+ $('#home-section-title').firstChild.textContent=homeView==='help'?'도움 요청 ':'대화 ';
  $('#home-room-count').textContent=rooms.length;$('#home-filters').hidden=homeView==='help';$('#home-new').hidden=homeView==='help';
  $('#home-filters').querySelectorAll('button').forEach(b=>{b.classList.toggle('selected',b.dataset.filter===homeFilter);b.setAttribute('aria-pressed',String(b.dataset.filter===homeFilter));});
  $('#nav-chats').classList.toggle('selected',homeView==='chats');$('#nav-help').classList.toggle('selected',homeView==='help');
- $('#home-room-list').innerHTML=rooms.length?rooms.map(r=>`<button class="home-room-row ${r.unread?'has-unread':''}" data-home-room="${esc(r.id)}"><span class="home-room-avatar ${r.initials.length>1?'group-avatar':''} ${r.kind==='personal'?'personal-avatar':''}">${r.kind==='personal'?'<svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg>':r.initials.map(x=>`<span>${esc(x)}</span>`).join('')}</span><span class="home-room-content"><span class="home-room-heading"><strong>${esc(r.title)}</strong>${r.kind==='family'?`<small aria-label="구성원 ${r.members.split(' · ').length}명">${r.members.split(' · ').length}</small>`:''}</span><span class="home-preview">${esc(r.preview)}</span>${r.tag?`<span class="home-room-tag ${r.id==='mom'?'needs-help':''}">${esc(r.tag)}</span>`:''}</span><span class="home-room-meta"><time>${esc(r.time)}</time>${r.unread?`<b aria-label="안 읽은 메시지 ${r.unread}개">${r.unread>99?'99+':r.unread}</b>`:''}</span></button>`).join(''):`<div class="home-empty">${homeView==='help'?'아직 받은 도움 요청이 없어요.':homeFilter==='family'?'아직 함께하는 방이 없어요.<br>새 대화에서 가족방을 만들거나 초대받은 방에 참여해 보세요.':'아직 나눈 이야기가 없어요. 새로운 대화를 시작해 보세요.'}</div>`;
+ $('#home-room-list').innerHTML=rooms.length?rooms.map(r=>`<button class="home-room-row ${r.unread?'has-unread':''}" data-home-room="${esc(r.id)}"><span class="home-room-avatar ${r.initials.length>1?'group-avatar':''} ${r.kind==='personal'?'personal-avatar':''}">${r.kind==='personal'?'<svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg>':r.initials.map(x=>`<span>${esc(x)}</span>`).join('')}</span><span class="home-room-content"><span class="home-room-heading"><strong>${esc(r.title)}</strong>${r.kind==='family'?`<small aria-label="구성원 ${r.members.split(' · ').length}명">${r.members.split(' · ').length}</small>`:''}</span><span class="home-preview">${esc(r.preview)}</span>${r.tag==='도움 요청'?`<span class="home-room-tag ${r.id==='mom'?'needs-help':''}">${esc(r.tag)}</span>`:''}</span><span class="home-room-meta"><time>${esc(r.time)}</time>${r.unread?`<b aria-label="안 읽은 메시지 ${r.unread}개">${r.unread>99?'99+':r.unread}</b>`:''}</span></button>`).join(''):`<div class="home-empty">${homeQuery&&homeView!=='help'?'검색 결과가 없어요.<br>대화방 이름이나 최근 메시지로 찾아보세요.':homeView==='help'?'아직 받은 도움 요청이 없어요.':homeFilter==='family'?'아직 함께하는 방이 없어요.<br>새 대화에서 가족방을 만들거나 초대받은 방에 참여해 보세요.':'아직 나눈 이야기가 없어요. 새로운 대화를 시작해 보세요.'}</div>`;
 }
 function openSample(id){
  const r=sampleRooms.find(r=>r.id===id);if(!r)return;
  $('#home-screen').hidden=true;$('#sample-room').hidden=false;$('#sample-title').textContent=r.title;$('#sample-members').textContent=r.members;
- $('#sample-messages').innerHTML='<p class="sample-day">우리의 일상 · 예시 대화</p>'+r.messages.map(([name,text])=>`<div class="sample-message ${name==='지은'||name==='나'?'sample-me':''}"><small>${esc(name)}</small><p>${esc(text)}</p></div>`).join('');
+ $('#sample-messages').innerHTML='<p class="sample-day">예시 대화</p>'+r.messages.map(([name,text])=>`<div class="sample-message ${name==='지은'||name==='나'?'sample-me':''}"><small>${esc(name)}</small><p>${esc(text)}</p></div>`).join('');
 }
 async function openAccountEntry(){document.querySelectorAll('dialog[open]').forEach(d=>d.close());$('#home-screen').hidden=true;$('#sample-room').hidden=true;$('#entry').hidden=false;$('#entry-welcome').hidden=true;$('#entry-connect').hidden=false;$('#entry-back').focus();const auth=await api('/api/auth/status').catch(()=>({google_enabled:false}));$('#connect-google').hidden=!auth.google_enabled;}
 $('#home-room-list').onclick=async e=>{const b=e.target.closest('[data-home-room]');if(!b)return;if(homeDemo){openSample(b.dataset.homeRoom);return;}try{await chooseRoom(b.dataset.homeRoom);$('#home-screen').hidden=true;$('#app-frame').hidden=false;render(true);}catch(err){toast(err.message);}};
+$('#home-search').oninput=e=>{homeQuery=e.target.value.normalize('NFC').trim().toLocaleLowerCase();renderHome();};
 $('#home-filters').onclick=e=>{const b=e.target.closest('[data-filter]');if(b){homeFilter=b.dataset.filter;renderHome();}};
 $('#home-help-card').onclick=()=>{if(homeDemo)openSample('mom');else{homeView='help';renderHome();}};$('#sample-back').onclick=()=>{$('#sample-room').hidden=true;$('#home-screen').hidden=false;};
 $('#home-connect').onclick=$('#sample-connect').onclick=openAccountEntry;
