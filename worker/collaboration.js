@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS help_requests(id TEXT PRIMARY KEY,room TEXT NOT NULL,
 CREATE TABLE IF NOT EXISTS notices(id TEXT PRIMARY KEY,uid TEXT NOT NULL,room TEXT NOT NULL,text TEXT NOT NULL,target TEXT,created REAL NOT NULL,seen INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS member_user ON members(uid);
 CREATE INDEX IF NOT EXISTS agenda_room ON agenda(room);
+CREATE INDEX IF NOT EXISTS agenda_source ON agenda(room,source);
 CREATE INDEX IF NOT EXISTS notice_user ON notices(uid,created);
 `);}
 export function allowed(s,room,uid){return s.one('SELECT id FROM rooms WHERE id=? AND uid=?',room,uid)||s.one('SELECT room FROM members WHERE room=? AND uid=?',room,uid);}
@@ -29,7 +30,7 @@ export function listRooms(s,uid){return s.rows(`SELECT r.*,CASE WHEN g.room IS N
  COALESCE((SELECT MAX(created) FROM turns WHERE room=r.id),r.created) AS updated,
  (SELECT count(*) FROM turns t WHERE t.room=r.id AND t.uid<>? AND t.created>COALESCE((SELECT seen FROM members WHERE room=r.id AND uid=?),0)) AS unread
  FROM rooms r LEFT JOIN groups g ON g.room=r.id WHERE r.uid=? OR EXISTS(SELECT 1 FROM members WHERE room=r.id AND uid=?) ORDER BY updated DESC`,uid,uid,uid,uid).map(r=>({...r,members:r.kind==='family'?roomMembers(s,r.id):[]}));}
-export function agendaView(s,a){return {...a,room_title:s.one('SELECT title FROM rooms WHERE id=?',a.room)?.title,assignee_name:a.assignee?s.one('SELECT name FROM users WHERE id=?',a.assignee)?.name:null,confirmations:s.rows('SELECT c.uid,u.name FROM confirmations c JOIN users u ON u.id=c.uid WHERE c.item=? AND c.version=?',a.id,a.version),changes:s.rows("SELECT * FROM changes WHERE item=? AND status='pending' ORDER BY created",a.id).map(c=>({...c,patch:JSON.parse(c.patch)}))};}
+export function agendaView(s,a){const last=s.one('SELECT h.*,u.name AS actor_name FROM agenda_history h LEFT JOIN users u ON u.id=h.actor WHERE item=? ORDER BY h.created DESC LIMIT 1',a.id);return {...a,latest_change:last?{created:last.created,actor_name:last.actor_name,before:JSON.parse(last.before_json),after:JSON.parse(last.after_json)}:null,room_title:s.one('SELECT title FROM rooms WHERE id=?',a.room)?.title,assignee_name:a.assignee?s.one('SELECT name FROM users WHERE id=?',a.assignee)?.name:null,confirmations:s.rows('SELECT c.uid,u.name FROM confirmations c JOIN users u ON u.id=c.uid WHERE c.item=? AND c.version=?',a.id,a.version),changes:s.rows("SELECT * FROM changes WHERE item=? AND status='pending' ORDER BY created",a.id).map(c=>({...c,patch:JSON.parse(c.patch)}))};}
 function fields(b){need(['event','task'].includes(b.kind)&&str(b.title,160)&&typeof(b.place||'')==='string'&&(b.place||'').length<=300,422,'제목과 종류를 확인해 주세요.');if(b.starts)need(typeof b.starts==='string'&&b.starts.length<40&&Number.isFinite(Date.parse(b.starts)),422,'날짜와 시간을 확인해 주세요.');return {kind:b.kind,title:b.title.trim(),starts:b.starts?new Date(b.starts).toISOString():null,place:b.place||''};}
 export function proposeFromText(text){
  // Only propose literal content. A person selects the exact date and approves it.
@@ -37,7 +38,8 @@ export function proposeFromText(text){
  const event=/만나|모임|출발|예약|약속|방문/.test(text),task=/챙|준비|확인|담당|가져|해야/.test(text);
  if(!event&&!task)return null;
  let clock=null;if(time){let h=Number(time[2]),m=Number(time[3]||0);if(time[1]==='오후'&&h<12)h+=12;if(time[1]==='오전'&&h===12)h=0;if(h<24&&m<60)clock=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;}
- return {kind:event?'event':'task',title:text.slice(0,120),time:clock,date:null,note:'대화에서 찾은 후보예요. 날짜·장소·담당자를 확인한 뒤 저장해 주세요.'};
+ const title=(time?text.replace(time[0], ''):text).replace(/^(?:(?:이번|다음)\s*주\s*)?[월화수목금토일]요일\s*/, '').replace(/^에\s*/, '').trim();
+ return {kind:event?'event':'task',title:(title||text).slice(0,120),time:clock,place:text.match(/([가-힣A-Za-z0-9]+(?:\s+\d+번\s*출구)?)에서/)?.[1]||'',date:null,note:'대화에서 찾은 후보예요. 날짜·장소·담당자를 확인한 뒤 저장해 주세요.'};
 }
 export async function collaborationRoute(s,request,{uid,b,token}){
  const url=new URL(request.url),path=url.pathname,method=request.method;
@@ -65,13 +67,14 @@ export async function collaborationRoute(s,request,{uid,b,token}){
  if(path==='/api/agenda'&&method==='POST'){
   access(s,b.room,uid);s.limit('agenda:'+uid,40,3600);const f=fields(b);need(str(b.request_id,80)&&/^[\w-]{16,80}$/.test(b.request_id),422,'요청 번호를 확인해 주세요.');
   const previous=s.one('SELECT * FROM agenda WHERE id=?',b.request_id);if(previous){need(previous.creator===uid&&previous.room===b.room,409,'이미 사용된 요청이에요.');return json(agendaView(s,previous));}
-  if(b.source){const t=s.one('SELECT id FROM turns WHERE id=? AND room=?',b.source,b.room);need(t,422,'원래 메시지를 찾지 못했어요.');}
+  if(b.source){const t=s.one('SELECT id FROM turns WHERE id=? AND room=?',b.source,b.room);need(t,422,'원래 메시지를 찾지 못했어요.');const saved=s.one('SELECT * FROM agenda WHERE room=? AND source=? ORDER BY created LIMIT 1',b.room,b.source);if(saved)return json(agendaView(s,saved));}
   if(b.assignee)need(allowed(s,b.room,b.assignee),422,'같은 방의 담당자를 골라 주세요.');
   let starts=f.starts,parent=null,offset=null;if(b.parent){const p=s.one("SELECT * FROM agenda WHERE id=? AND room=? AND kind='event'",b.parent,b.room);need(p?.starts&&Number.isInteger(b.offset)&&Math.abs(b.offset)<=10080,422,'연결할 약속과 시간 차이를 확인해 주세요.');parent=p.id;offset=b.offset;starts=new Date(Date.parse(p.starts)+offset*60000).toISOString();}
   s.run('INSERT INTO agenda VALUES(?,?,?,?,?,?,?,?,?,0,1,?,?,?,?)',b.request_id,b.room,uid,f.kind,f.title,starts,f.place,b.assignee||null,b.assignee===uid?1:0,b.source||null,parent,offset,now());notify(s,b.room,uid,f.kind==='event'?'새 약속이 등록됐어요.':'챙길 일이 등록됐어요.',b.request_id);return json(agendaView(s,s.one('SELECT * FROM agenda WHERE id=?',b.request_id)),201);
  }
  const itemPath=path.match(/^\/api\/agenda\/([\w-]+)(?:\/(confirm|accept|complete|changes|history))?$/);
  if(itemPath){const a=s.one('SELECT * FROM agenda WHERE id=?',itemPath[1]);need(a,404,'항목을 찾지 못했어요.');access(s,a.room,uid);const action=itemPath[2];
+  if(!action&&method==='GET')return json(agendaView(s,a));
   if(action==='history'&&method==='GET')return json(s.rows('SELECT * FROM agenda_history WHERE item=? ORDER BY created DESC',a.id).map(h=>({...h,before:JSON.parse(h.before_json),after:JSON.parse(h.after_json)})));
   if(action==='confirm'&&method==='POST'){need(b.version===a.version,409,'내용이 바뀌었어요. 다시 확인해 주세요.');s.run('INSERT OR REPLACE INTO confirmations VALUES(?,?,?)',a.id,uid,a.version);return json(agendaView(s,a));}
   if(action==='accept'&&method==='POST'){need(a.kind==='task'&&(!a.assignee||a.assignee===uid),403,'본인이 맡은 일만 수락할 수 있어요.');s.run('UPDATE agenda SET assignee=?,accepted=1 WHERE id=?',uid,a.id);notify(s,a.room,uid,'담당자가 할 일을 수락했어요.',a.id);return json(agendaView(s,s.one('SELECT * FROM agenda WHERE id=?',a.id)));}
