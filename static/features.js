@@ -10,9 +10,9 @@ async function liveOpenRoom(room){await chooseRoom(room);$('#home-screen').hidde
 function updateRoomTools(){const group=currentRoom()?.kind==='family';$('.appbar .count').textContent=group?`${currentRoom().members.length}명 참여 중`:'곁에와 나만 보는 대화';$('#room-tools').hidden=false;$('#room-members').hidden=!group;$('#ask-ai').closest('label').hidden=!group;$('#ask-ai').checked=false;$('#message').placeholder=group?'가족에게 이야기를 보내세요':'무엇을 도와드릴까요?';}
 function messageActions(t){
  const suggestion=t.proposal?`<button class="chip ghost" data-save-agenda="${t.id}">${t.proposal.kind==='event'?'약속으로 저장':'할 일로 저장'}</button>`:'';
- const readers=currentRoom()?.kind==='family'&&t.mine!==false&&t.read_by?.length?`<small class="message-read">${t.read_by.map(m=>esc(m.name)).join(' · ')} 읽음</small>`:'';
+
  const menu=t.mine!==false?`<details class="message-menu" data-message-menu="${t.id}"><summary aria-label="이 메시지의 추가 기능">더보기</summary><button data-share-help="${t.id}">가족에게 도움 요청</button></details>`:'';
- return suggestion||readers||menu?`<div class="message-actions ${t.status==='message'&&t.mine!==false?'own-message-actions':''}">${suggestion}${menu}${readers}</div>`:'';
+ return suggestion||menu?`<div class="message-actions ${t.status==='message'&&t.mine!==false?'own-message-actions':''}">${suggestion}${menu}</div>`:'';
 }
 function liveRenderAgenda(){
  const next=live.agenda.filter(a=>a.kind==='event'&&!a.done&&a.starts&&Date.parse(a.starts)>=Date.now()-3600000).sort((a,b)=>Date.parse(a.starts)-Date.parse(b.starts))[0];const remaining=live.agenda.filter(a=>a.kind==='task'&&!a.done).length;

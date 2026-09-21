@@ -6,6 +6,7 @@
     "dev": "wrangler dev --port 8901",
     "deploy": "wrangler deploy",
     "test": "node --test tests/worker.test.mjs",
+    "test:chat": "node --test tests/chat-flow.test.mjs",
     "test:auth": "node --test tests/auth.test.mjs",
     "test:collaboration": "node --test tests/collaboration.test.mjs",
     "test:family": "node --test tests/family-live.test.mjs",

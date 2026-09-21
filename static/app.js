@@ -1,7 +1,7 @@
 'use strict';
 const $ = s => document.querySelector(s);
 const modes = {easy:'쉽게 듣기',guided:'한 단계씩',expert:'자세히 보기'};
-const state = {account:{},profile:{name:'나',mode:'easy'}, rooms:[], room:null, turns:[], image:null, sending:false, polling:null, loading:0, ready:false, outbox:null};
+const state = {account:{},profile:{name:'나',mode:'easy'}, rooms:[], room:null, turns:[], image:null, sending:false, polling:null, loading:0, ready:false, deliveryRevision:0};
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = s => esc(s).replace(/(\d{1,2}시간 \d{1,2}분|\d{1,2}시 \d{1,2}분|\d{1,2}:\d{2}|\d{1,2}시간|\d{1,2}시|\d{1,3}분)/g,'<b>$1</b>');
 const symbol = '<svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg>';
@@ -21,12 +21,39 @@ async function api(path, method='GET', body) {
   if(!response.ok) { const e=new Error(typeof data.detail==='string'?data.detail:'입력 내용을 확인해 주세요.'); e.status=response.status; throw e; }
   return data;
 }
+let outboxStorageWarning=false;
+const deliveryQueue=new ChatFlow.Queue({
+ send:entry=>api(`/api/rooms/${entry.room}/turns`,'POST',entry.body),
+ changed:()=>{
+   try{deliveryQueue.entries.length?sessionStorage.setItem('outbox',JSON.stringify(deliveryQueue.entries)):sessionStorage.removeItem('outbox');}
+   catch{if(!outboxStorageWarning){outboxStorageWarning=true;toast('보내는 내용은 이 화면에 남아 있어요. 저장 공간이 부족하니 전송이 끝날 때까지 새로고침하지 마세요.');}}
+   if(state.ready)render();
+ },
+ accepted:(turn,entry)=>{
+   if(entry.uid!==state.uid)return;
+   state.deliveryRevision++;
+   if(state.room===entry.room){if(!state.turns.some(t=>t.id===turn.id))state.turns.push(turn);render();poll();}
+   api('/api/rooms').then(rooms=>{if(entry.uid!==state.uid)return;state.rooms=rooms;renderRooms();if(!$('#home-screen').hidden)renderHome();}).catch(()=>{});
+ }
+});
+async function restoreDeliveries(){
+ const saved=recall('outbox');const entries=Array.isArray(saved)?saved:saved?.body?[saved]:[];
+ deliveryQueue.entries=entries.filter(e=>(!e.uid||e.uid===state.uid)&&state.rooms.some(r=>r.id===e.room)&&e.body?.request_id).map(e=>({...e,uid:state.uid,created:e.created||Date.now()/1000,delivery:'failed',error:'전송을 확인하지 못했어요. 다시 보내기를 눌러 주세요.'}));
+ await Promise.all(deliveryQueue.entries.map(async e=>{try{const t=await api(`/api/turns/${e.body.request_id}`);deliveryQueue.confirm([t]);if(t.room===state.room&&!state.turns.some(x=>x.id===t.id))state.turns.push(t);}catch{/* Keep text and photo for a manual retry, including while offline. */}}));
+ deliveryQueue.changed();
+}
+function deliveryMeta(t){
+ if(t.delivery==='sending')return '<span class="delivery-state" role="status">전송 중…</span>';
+ if(t.delivery==='failed')return `<span class="delivery-failure" role="status">전송 실패 · ${esc(t.deliveryError)}</span><button class="resend-message" data-resend="${t.id}">다시 보내기</button>`;
+ if(t.mine===false)return '';
+ return `<span class="delivery-state">${t.read_by?.length?`${esc(t.read_by.map(m=>m.name).join(' · '))} 읽음`:'전송 완료'}</span>`;
+}
 function showDialog(id) { document.querySelectorAll('dialog[open]').forEach(d=>d.close()); $(id).showModal(); }
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 document.querySelectorAll('dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d){const r=d.getBoundingClientRect();if(e.clientY<r.top||e.clientX<r.left||e.clientX>r.right)d.close();}}));
 function network(message='') { $('#connection').hidden=!message; $('#connection').textContent=message; }
 function buttons() {
-  const pending=state.turns.some(t=>t.status==='pending');
+  const pending=state.turns.some(t=>t.status==='pending')||deliveryQueue.entries.some(e=>e.room===state.room&&e.delivery==='sending'&&(currentRoom()?.kind!=='family'||e.body.ask_ai));
   $('#send').disabled=!state.ready||state.sending||pending||(!$('#message').value.trim()&&!state.image);
   $('#attach').disabled=!state.ready||state.sending;
 }
@@ -71,10 +98,11 @@ function answer(t) {
 function render(forceBottom=false) {
   const openMenus=Array.from(document.querySelectorAll('[data-message-menu][open]'),el=>el.dataset.messageMenu);
   const chat=$('#chat'), bottom=chat.scrollHeight-chat.scrollTop-chat.clientHeight<90, scroll=chat.scrollTop;
-  if(!state.turns.length) {
+  const turns=ChatFlow.merge(state.turns,deliveryQueue.entries,state.room,state.profile.name);
+  if(!turns.length) {
     chat.innerHTML=currentRoom()?.kind==='family'?`<div class="welcome"><div class="welcome-symbol">${symbol}</div><h2>함께 이야기해요.</h2><p>구성원·초대에서 가족을 초대해 주세요.<br>메시지와 사진을 나누고 약속을 정리할 수 있어요.</p></div>`:`<div class="welcome"><div class="welcome-symbol">${symbol.replace('class="icon"','class="welcome-symbol"')}</div><h2>어려운 일상에,<br>곁에가 함께할게요.</h2><p>궁금한 걸 편하게 적어주세요.<br>받은 문자나 사진도 함께 살펴볼게요.</p><div class="starters"><button data-starter="받은 문자가 무슨 뜻인지 알고 싶어요.">받은 문자, 같이 읽어주세요 <span>›</span></button><button data-starter="휴대폰 글씨를 크게 바꾸고 싶어요.">휴대폰 쓰는 게 어려워요 <span>›</span></button></div></div>`;
   } else {
-    chat.innerHTML=state.turns.map((t,i)=>`${!i||new Date(state.turns[i-1].created*1000).toDateString()!==new Date(t.created*1000).toDateString()?`<div class="day-divider">${messageDay(t.created)}</div>`:''}<section class="turn" data-turn="${t.id}"><div class="msg ${t.mine===false?'family-message':'me'}">${t.mine===false?`<div class="avatar person">${esc((t.author||'가족').slice(0,1))}</div>`:''}<div class="msg-body">${t.mine===false?`<div class="msg-meta"><b>${esc(t.author||'가족')}</b></div>`:''}<div class="bubble">${t.has_image?`<img class="user-photo" src="/api/turns/${t.id}/image" alt="대화에 첨부된 사진" loading="lazy">`:''}${t.text?`<div class="user-text">${esc(t.text)}</div>`:''}</div><time class="message-time">${stamp(t.created)}</time></div></div><div class="msg ai-answer" ${t.status==='message'?'hidden':''} data-mode="${state.profile.mode}"><div class="avatar ai">${symbol}</div><div class="msg-body wide"><div class="msg-meta"><b>곁에</b></div>${answer({...t,mode:state.profile.mode})}</div></div>${messageActions(t)}</section>`).join('');
+    chat.innerHTML=turns.map((t,i)=>`${!i||new Date(turns[i-1].created*1000).toDateString()!==new Date(t.created*1000).toDateString()?`<div class="day-divider">${messageDay(t.created)}</div>`:''}<section class="turn ${ChatFlow.grouped(turns[i-1],t)?'grouped-turn':''}" data-turn="${t.id}"><div class="msg ${t.mine===false?'family-message':'me'}">${t.mine===false?`<div class="avatar person ${ChatFlow.grouped(turns[i-1],t)?'continued-avatar':''}" ${ChatFlow.grouped(turns[i-1],t)?'aria-hidden="true"':''}>${esc((t.author||'가족').slice(0,1))}</div>`:''}<div class="msg-body">${t.mine===false&&!ChatFlow.grouped(turns[i-1],t)?`<div class="msg-meta"><b>${esc(t.author||'가족')}</b></div>`:''}<div class="bubble">${t.has_image?`<img class="user-photo" src="${t.localImage?esc(t.localImage):`/api/turns/${t.id}/image`}" alt="대화에 첨부된 사진" loading="lazy">`:''}${t.text?`<div class="user-text">${esc(t.text)}</div>`:''}</div><div class="message-delivery"><time class="message-time">${stamp(t.created)}</time>${deliveryMeta(t)}</div></div></div><div class="msg ai-answer" ${t.status==='message'?'hidden':''} data-mode="${state.profile.mode}"><div class="avatar ai">${symbol}</div><div class="msg-body wide"><div class="msg-meta"><b>곁에</b></div>${answer({...t,mode:state.profile.mode})}</div></div>${t.local?'':messageActions(t)}</section>`).join('');
   }
   chat.querySelectorAll('[data-message-menu]').forEach(el=>{el.open=openMenus.includes(el.dataset.messageMenu);});
   buttons();
@@ -84,34 +112,32 @@ function poll() {
   clearTimeout(state.polling);
   state.polling=setTimeout(async()=>{
     if(document.hidden){poll();return;}
-    const room=state.room;
+    const room=state.room,revision=state.deliveryRevision;
     try {
       const turns=await api(`/api/rooms/${room}/turns`);
       if(room!==state.room)return;
-      if(JSON.stringify(turns)!==JSON.stringify(state.turns)){state.turns=turns;render();if(state.rooms.find(r=>r.id===room)?.kind==='family')api(`/api/rooms/${room}/seen`,'POST',{}).catch(()=>{});}
+      if(revision!==state.deliveryRevision){poll();return;}
+      if(JSON.stringify(turns)!==JSON.stringify(state.turns)){state.turns=turns;deliveryQueue.confirm(turns);render();if(state.rooms.find(r=>r.id===room)?.kind==='family')api(`/api/rooms/${room}/seen`,'POST',{}).catch(()=>{});}
       network();
     }catch(e){network(e.message);}
     poll();
   },state.turns.some(t=>t.status==='pending')?1400:7000);
 }
 async function chooseRoom(id) {
-  const version=++state.loading;
-  const turns=await api(`/api/rooms/${id}/turns`);
+  const version=++state.loading,revision=state.deliveryRevision;
+  let turns=await api(`/api/rooms/${id}/turns`);
+  if(revision!==state.deliveryRevision)turns=await api(`/api/rooms/${id}/turns`);
   if(version!==state.loading)return;
-  state.room=id;state.turns=turns;remember('room',id);renderRooms();updateRoomTools();render(true);poll();if(state.rooms.find(r=>r.id===id)?.kind==='family')api(`/api/rooms/${id}/seen`,'POST',{}).catch(()=>{});
+  state.room=id;state.turns=turns;deliveryQueue.confirm(turns);remember('room',id);renderRooms();updateRoomTools();render(true);poll();if(state.rooms.find(r=>r.id===id)?.kind==='family')api(`/api/rooms/${id}/seen`,'POST',{}).catch(()=>{});
 }
 async function boot() {
   try {
     const session=await api('/api/session','POST');state.uid=session.uid;if(new URLSearchParams(location.search).has('preview'))history.replaceState(null,'',location.pathname);state.account=session.account||{};state.profile=session.profile;profileUI();if(session.access_code){$('#access-hint').textContent='휴대폰에서 처음 열 때 입력할 접속 코드: '+session.access_code;$('#access-hint').hidden=false;}
     state.rooms=await api('/api/rooms');await loadFeatures();
     const room=state.rooms.find(r=>r.id===recall('room'))||state.rooms[0];
-    await chooseRoom(room.id);state.ready=true;buttons();showHome(false);
+    await chooseRoom(room.id);await restoreDeliveries();state.ready=true;buttons();showHome(false);
     if(!session.ai_ready)network('AI 연결 설정이 아직 준비되지 않았어요.');
-    const outbox=recall('outbox');
-    if(outbox){
-      try {await api(`/api/turns/${outbox.body.request_id}`);remember('outbox',null);}
-      catch(e){if(e.status===404){state.outbox=outbox;await chooseRoom(outbox.room);$('#home-screen').hidden=true;$('#app-frame').hidden=false;$('#message').value=outbox.body.text; if(outbox.body.image){state.image={data:outbox.body.image,type:outbox.body.image_type};showAttachment();}composerResize();toast('보내던 내용이 남아 있어요. 전송 버튼으로 다시 보내세요.');}}
-    }
+    if(deliveryQueue.entries.length){const entry=deliveryQueue.entries[0];await chooseRoom(entry.room);$('#home-screen').hidden=true;$('#app-frame').hidden=false;render(true);toast('전송하지 못한 메시지가 남아 있어요. 말풍선에서 다시 보낼 수 있어요.');}
   }catch(e){
     if(e.status===401){
       state.ready=false;buttons();showHome(true);
@@ -130,22 +156,17 @@ $('#unlock-form').onsubmit=async e=>{
   catch(error){$('#entry-error').textContent=error.message;$('#entry-error').hidden=false;}
   finally{button.disabled=false;button.innerHTML='시작하기 <span aria-hidden="true">→</span>';}
 };
-$('#composer').addEventListener('submit',async e=>{
+$('#composer').addEventListener('submit',e=>{
   e.preventDefault();if($('#send').disabled)return;
-  const text=$('#message').value.trim(), image=state.image;
-  const same=state.outbox&&state.outbox.room===state.room&&state.outbox.body.text===text&&state.outbox.body.image===(image?.data||null)&&!!state.outbox.body.ask_ai===$('#ask-ai').checked;
-  const body=same?state.outbox.body:{request_id:makeId(),text,image:image?.data||null,image_type:image?.type||null,ask_ai:$('#ask-ai').checked};
-  state.outbox={room:state.room,body};remember('outbox',state.outbox);state.sending=true;buttons();
-  try {
-    const turn=await api(`/api/rooms/${state.room}/turns`,'POST',body);
-    state.turns=state.turns.filter(t=>t.id!==turn.id);state.turns.push(turn);
-    $('#message').value='';state.image=null;showAttachment();state.outbox=null;remember('outbox',null);composerResize();render(true);
-    state.rooms=await api('/api/rooms');renderRooms();network();poll();
-  }catch(err){toast(err.message); if(!err.network){state.outbox=null;remember('outbox',null);}}
-  finally{state.sending=false;buttons();}
+  const text=$('#message').value.trim(),image=state.image;
+  const entry={uid:state.uid,room:state.room,created:Date.now()/1000,delivery:'sending',error:'',body:{request_id:makeId(),text,image:image?.data||null,image_type:image?.type||null,ask_ai:$('#ask-ai').checked}};
+  // Clear only this submitted snapshot; later typing is never cleared by the response.
+  $('#message').value='';state.image=null;showAttachment();composerResize();
+  deliveryQueue.add(entry);render(true);deliveryQueue.retry(entry.body.request_id);
 });
 $('#chat').addEventListener('click',async e=>{
   const btn=e.target.closest('button');if(!btn)return;
+  if(btn.dataset.resend){deliveryQueue.retry(btn.dataset.resend);return;}
   if(btn.dataset.starter){prefill(btn.dataset.starter);return;}
   const id=btn.dataset.step||btn.dataset.help||btn.dataset.voice||btn.dataset.retry||btn.dataset.suggestion;
   const t=state.turns.find(t=>t.id===id);if(!t)return;
@@ -220,7 +241,7 @@ $('#confirm-logout').onclick=async()=>{
 };
 $('#devices').onclick=()=>showDialog('#device-panel');
 $('#make-code').onclick=async()=>{try{const r=await api('/api/pairing','POST');$('#pair-code').textContent=r.code;$('#pair-code').hidden=false;}catch(e){toast(e.message);}};
-$('#claim-form').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('button');b.disabled=true;try{await api('/api/pairing/claim','POST',{code:$('#pair-input').value});clearTimeout(state.polling);state.turns=[];state.image=null;state.outbox=null;remember('room',null);remember('outbox',null);$('#message').value='';$('#pair-input').value='';$('#pair-code').hidden=true;showAttachment();$('#device-panel').close();await boot();toast('대화를 연결했어요.');}catch(e){toast(e.message);}finally{b.disabled=false;}};
+$('#claim-form').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('button');b.disabled=true;try{await api('/api/pairing/claim','POST',{code:$('#pair-input').value});clearTimeout(state.polling);state.turns=[];state.image=null;deliveryQueue.entries=[];remember('room',null);remember('outbox',null);$('#message').value='';$('#pair-input').value='';$('#pair-code').hidden=true;showAttachment();$('#device-panel').close();await boot();toast('대화를 연결했어요.');}catch(e){toast(e.message);}finally{b.disabled=false;}};
 let installPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;});
 $('#install').onclick=()=>{
